@@ -21,8 +21,9 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
     const registrarOwner = accounts[1];
     const domainSaleOwner = accounts[2];
     const testdomainOwner = accounts[3];
-    const testdomainBidder1 = accounts[4];
-    const testdomainBidder2 = accounts[5];
+    const referer = accounts[4];
+    const testdomainBidder1 = accounts[5];
+    const testdomainBidder2 = accounts[6];
 
     // Carry registrar over tests
     var registrar;
@@ -71,6 +72,32 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
 
     it('should finish a fixed-price sale', async () => {
         const saleRegistry = await DomainSaleRegistry.deployed();
-    });
 
+        // Obtain the balance of the parties in the sale
+        const priorSellerBalance = web3.eth.getBalance(testdomainOwner);
+        const priorBuyerBalance = web3.eth.getBalance(testdomainBidder1);
+        const priorRefererBalance = web3.eth.getBalance(referer);
+        const priorDomainSaleOwnerBalance = web3.eth.getBalance(domainSaleOwner);
+
+        // Finish the sale
+        const finishTx = await saleRegistry.finishSale('testdomain1'); // From whom?
+
+        // Ensure that the seller has the funds
+        const updatedSellerBalance = web3.eth.getBalance(testdomainOwner);
+        const updatedBuyerBalance = web3.eth.getBalance(testdomainBidder1);
+        const updatedRefererBalance = web3.eth.getBalance(referer);
+        const updatedDomainSaleOwnerBalance = web3.eth.getBalance(domainSaleOwner);
+
+        // Ensure that the funds are accurate
+        const totalFunds = web3.toWei(0.1, 'ether');
+        const buyerFunds = - totalFunds;
+        const sellerFunds = totalFunds * 0.975;
+        const domainSaleFunds = totalFunds * 0.025 * 0.9;
+        const refererFunds = totalFunds * 0.025 * 0.1;
+
+        assert.equal(updatedSellerBalance - priorSellerBalance, sellerFunds);
+        assert.equal(updatedBuyerBalance - priorBuyerBalance, buyerFunds);
+        assert.equal(updatedDomainSaleOwnerBalance - priorDomainSaleOwnerBalance, domainSaleFunds);
+        assert.equal(updatedRefererBalance - priorRefererBalance, refererFunds);
+    });
 });
