@@ -9,7 +9,7 @@ import './DomainSaleRegistry.sol';
 contract DomainSaleAgent {
     enum Bidding { Open, Closed }
 
-    DomainSaleRegistry registry;
+    DomainSaleRegistry public registry;
 
     struct Sale {
         // The reserve value for this sale (0 == no reserve)
@@ -30,7 +30,7 @@ contract DomainSaleAgent {
     }
 
     // Domains being sold
-    mapping(bytes32 => Sale) sales; // NameHash => sale
+    mapping(bytes32 => Sale) public sales; // NameHash => sale
 
     /**
      * @dev Constructor for this agent
@@ -43,11 +43,22 @@ contract DomainSaleAgent {
     /**
      * @dev start a domain sale using this agent
      */
-    function startSale(bytes32 nameHash) returns (bool) {
-        return true;
+    function start(bytes32 nameHash, DomainSaleAgent agent, Deed deed, uint256 reserve, uint256 finishesAt) {
+        sales[nameHash].agent = agent;
+        sales[nameHash].deed = deed;
+        sales[nameHash].reserve = reserve;
+        sales[nameHash].finishesAt = finishesAt;
     }
 
+    /**
+     * @dev state if bidding is open.
+     * @return Open or Closed
+     */
     function bidding(bytes32 nameHash) returns (Bidding);
 
-    // function getSale(bytes32 labelHash) returns (int256 reserve, int256 finishesAt, int256 bestBid) {}
+    /**
+     * @dev state if this auction has bids.
+     * @return true or false
+     */
+    function hasBids(bytes32 nameHash) returns (bool);
 }

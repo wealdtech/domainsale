@@ -35,6 +35,9 @@ contract DomainSaleRegistry {
 
         // The sales agent for the domain
         DomainSaleAgent agent;
+
+        // The referer when a sale started
+        address startReferer;
     }
 
     mapping(bytes32 => Sale) sales; // nameHash => Sale
@@ -53,6 +56,16 @@ contract DomainSaleRegistry {
     //   3) At the end of the auction a completeAuction() call is made that transfers
     //      the deed
 
+    modifier ifBiddingOpen(bytes32 domainNameHash) {
+        require(sales[domainNameHash].agent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
+        _;
+    }
+
+    modifier ifSaleHasNoBids(bytes32 domainNameHash) {
+        require(sales[domainNameHash].agent.hasBids(domainNameHash) == false);
+        _;
+    }
+
     function DomainSaleRegistry(ENS _ens) {
         ens = _ens;
     }
@@ -66,13 +79,12 @@ contract DomainSaleRegistry {
     function startSale(string domain, DomainSaleAgent salesagent, address referer) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
 
-        DomainSaleAgent agent = sales[domainNameHash].agent;
         // Ensure that this sale is not currently running
         require(sales[domainNameHash].reserve == 0 || sales[domainNameHash].finishesAt == 0);
         // Fetch the deed for the sale
 
         // var registry = ens.owner(rootNameHash);
-        // (mode, deed, registrationDate, value, highestBid)  = ens.entries(domainHash);
+        //  (mode, deed, registrationDate, value, highestBid)  = ens.entries(domainHash);
         
         // Ensure that the deed is owned by this contract
         // require(deed.owner == this);
@@ -80,11 +92,16 @@ contract DomainSaleRegistry {
         // Remove the resolver for the domain
         ens.setResolver(domainNameHash, 0);
 
+        // TODO fix
+        Deed deed = Deed(0);
+        uint256 reserve = 1000000000000000000;
+        uint256 finishesAt = 0;
         // Start the auction according to the sales agent's rules
-        salesagent.startSale(domainNameHash);
+        salesagent.start(domainNameHash, salesagent, deed, reserve, finishesAt);
 
         // Store details about the sale?
         sales[domainNameHash].agent = salesagent;
+        sales[domainNameHash].startReferer = referer;
 
         // domainSale.setDomain(domainHash, domain);
         // domainSale.setDeed(domainHash, deed);
@@ -125,7 +142,8 @@ contract DomainSaleRegistry {
      *      no bids for the domain.
      * @param domain domain for sale (e.g. 'mydomain' if selling 'mydomain.eth')
      */
-    function cancelSale(string domain) {
+    function cancelSale(string domain) ifBiddingOpen(sha3(rootNameHash, sha3(domain))) ifSaleHasNoBids(sha3(rootNameHash, sha3(domain))) {
+
         // confirm correct ownership of the deed (via previousowner)
         // confirm auction has no bids
         // revert ownership of the deed

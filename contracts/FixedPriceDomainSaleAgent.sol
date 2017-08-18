@@ -1,5 +1,6 @@
 pragma solidity ^0.4.11;
 
+import './DomainSaleRegistry.sol';
 import './DomainSaleAgent.sol';
 
 /**
@@ -8,8 +9,11 @@ import './DomainSaleAgent.sol';
  */
 contract FixedPriceDomainSaleAgent is DomainSaleAgent {
 
-    function start(bytes32 domainHash) public {
-        //super(domainHash, this);
+    function FixedPriceDomainSaleAgent(DomainSaleRegistry registry) DomainSaleAgent(registry) {}
+
+    function start(bytes32 domainHash, DomainSaleAgent agent, Deed deed, uint256 reserve, uint256 finishesAt) public {
+        require(agent == this);
+        super.start(domainHash, agent, deed, reserve, finishesAt);
     }
 
     function bid(bytes32 domainHash) public payable {
@@ -18,7 +22,16 @@ contract FixedPriceDomainSaleAgent is DomainSaleAgent {
         sales[domainHash].bestBid = msg.value;
     }
 
-    function bidding(bytes32 namehash) public returns (Bidding) {
-        return Bidding.Open;
+    function bidding(bytes32 domainHash) public returns (Bidding) {
+        // Bidding is open if we don't have any bids
+        if (sales[domainHash].bestBid == 0) {
+            return Bidding.Open;
+        } else {
+            return Bidding.Closed;
+        }
+    }
+
+    function hasBids(bytes32 domainHash) public returns (bool) {
+        return sales[domainHash].bestBid != 0;
     }
 }

@@ -6,10 +6,10 @@ const DomainSaleRegistry = artifacts.require("./DomainSaleRegistry.sol");
 const FixedPriceDomainSaleAgent = artifacts.require("./FixedPriceDomainSaleAgent.sol");
 
 // Addresses from 'testrpc -d'
-const contractOwner = '0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1'; // accounts[0]
-const registrarOwner = '0xffcf8fdee72ac11b5c542428b35eef5769c409f0'; // accounts[1]
-//const ethOwner = '0x22d491bde2303f2f43325b2108d26f1eaba1e32b'; // accounts[2]
-const testdomainOwner = '0xe11ba2b4d45eaed5996cd0823791e0c93114882d'; // accounts[3]
+const ensOwner              = '0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1'; // accounts[0]
+const registrarOwner        = '0xffcf8fdee72ac11b5c542428b35eef5769c409f0'; // accounts[1]
+const domainSaleOwner       = '0x22d491bde2303f2f43325b2108d26f1eaba1e32b'; // accounts[2]
+const testdomainOwner       = '0xe11ba2b4d45eaed5996cd0823791e0c93114882d'; // accounts[3]
 
 const ethLabelHash = sha3('eth');
 const ethNameHash = sha3('0x0000000000000000000000000000000000000000000000000000000000000000', ethLabelHash);
@@ -33,13 +33,23 @@ const testdomain9LabelHash = sha3('testdomain9');
 const testdomain9ethNameHash = sha3(ethNameHash, testdomain9LabelHash);
 
 module.exports = async function(deployer) {
-    await deployer.deploy(ENS);
+    await deployer.deploy(ENS, {from: ensOwner});
     var ens = await ENS.deployed();
-    console.log('ENS deployed at ' + ens.address);
+    //console.log('ENS deployed at ' + ens.address);
 
     await deployer.deploy(FIFSRegistrar, ens.address, ethNameHash, {from: registrarOwner});
     var registrar = await FIFSRegistrar.deployed();
-    console.log('Registrar deployed at ' + registrar.address);
+    //console.log('Registrar deployed at ' + registrar.address);
+
+    await deployer.deploy(DomainSaleRegistry, ens.address, {from: domainSaleOwner});
+    var domainSaleRegistry = await DomainSaleRegistry.deployed();
+    //console.log('Domain sale registry deployed at ' + domainSaleRegistry.address);
+
+    await deployer.deploy(FixedPriceDomainSaleAgent, domainSaleRegistry.address, {from: domainSaleOwner});
+    //await deployer.deploy(FixedPriceDomainSaleAgent, {from: domainSaleOwner});
+    //await deployer.deploy(FixedPriceDomainSaleAgent);
+    var fixedPriceDomainSaleAgent = await FixedPriceDomainSaleAgent.deployed();
+    //console.log('Fixed price domain sale agent deployed at ' + fixedPriceDomainSaleAgent.address);
 
     // Pass ownership of eth to the FIFS registrar address
     await ens.setSubnodeOwner('0x0', ethLabelHash, registrar.address);
