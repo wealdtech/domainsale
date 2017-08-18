@@ -19,14 +19,9 @@ contract DomainSaleAgent {
 
         // The bids for the domain
         mapping(address => uint256) bids; // TODO make strut
+
         // The best bid for this sale
         uint256 bestBid;
-
-        // The deed for the domain
-        Deed deed;
-
-        // The sales agent for the domain
-        DomainSaleAgent agent;
     }
 
     // Domains being sold
@@ -43,22 +38,27 @@ contract DomainSaleAgent {
     /**
      * @dev start a domain sale using this agent
      */
-    function start(bytes32 nameHash, DomainSaleAgent agent, Deed deed, uint256 reserve, uint256 finishesAt) {
-        sales[nameHash].agent = agent;
-        sales[nameHash].deed = deed;
+    function start(bytes32 nameHash, uint256 reserve, uint256 finishesAt) public {
         sales[nameHash].reserve = reserve;
         sales[nameHash].finishesAt = finishesAt;
     }
 
     /**
-     * @dev state if bidding is open.
+     * @dev bid on a sale.  Implemented by the subclass.
+     */
+    function bid(bytes32 domainHash) public payable;
+
+    /**
+     * @dev state if bidding is open.  Implemented by the subclass.
      * @return Open or Closed
      */
-    function bidding(bytes32 nameHash) returns (Bidding);
+    function bidding(bytes32 nameHash) constant returns (Bidding);
 
     /**
      * @dev state if this auction has bids.
      * @return true or false
      */
-    function hasBids(bytes32 nameHash) returns (bool);
+    function hasBids(bytes32 domainHash) public constant returns (bool) {
+        return sales[domainHash].bestBid != 0;
+    }
 }
