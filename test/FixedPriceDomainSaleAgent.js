@@ -1,8 +1,8 @@
-//const DomainSaleRegistry = artifacts.require("./DomainSaleRegistry.sol");
-//const DomainSaleAgent = artifacts.require("./DomainSaleAgent.sol");
-const FixedPriceDomainSaleAgent = artifacts.require("./FixedPriceDomainSaleAgent.sol");
-const FIFSRegistrar = artifacts.require("./FIFSRegistrar.sol");
 const ENS = artifacts.require("./ENS.sol");
+const FIFSRegistrar = artifacts.require("./FIFSRegistrar.sol");
+const DomainSaleRegistry = artifacts.require("./DomainSaleRegistry.sol");
+const DomainSaleAgent = artifacts.require("./DomainSaleAgent.sol");
+const FixedPriceDomainSaleAgent = artifacts.require("./FixedPriceDomainSaleAgent.sol");
 
 const sha3 = require('solidity-sha3').default;
 
@@ -14,15 +14,17 @@ const testdomain2LabelHash = sha3('testdomain2');
 const testdomain2ethNameHash = sha3(ethNameHash, testdomain2LabelHash);
 
 
-contract('FixedPriceDomainSaleAgent', accounts => {
-    const contractOwner = accounts[0];
+contract('FixedPriceDomainSaleAgent', (accounts) => {
+    const ensOwner = accounts[0];
     const registrarOwner = accounts[1];
+    const domainSaleOwner = accounts[2];
     const testdomainOwner = accounts[3];
 
     it('should start a fixed-price sale', async () => {
-console.log('aaaaaaaaaaaaaaaa');
-        const agent =await FixedPriceDomainSaleAgent.deployed();
-console.log('bbbbbbbbbbbbbbbb ' + agent.address);
+        const ens = await ENS.deployed();
+        const fifsRegistrar = await FIFSRegistrar.deployed();
+        const registry = await DomainSaleRegistry.deployed();
+        const agent = await FixedPriceDomainSaleAgent.deployed();
 //        const agent = await FixedPriceDomainSaleAgent.deployed();
 //        const tx = await agent.startSale('testdomain1', agent, web3.toWei(10, 'ether'));
 //        console.log(tx);

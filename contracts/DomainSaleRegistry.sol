@@ -1,18 +1,8 @@
 pragma solidity ^0.4.11;
 
 import './DomainSaleAgent.sol';
-
-// The important bits of the ENS contract
-contract ENS {
-    enum Mode { Open, Auction, Owned, Forbidden, Reveal, NotYetAvailable }
-
-    function setResolver(bytes32 node, address resolver);
-    function entries(bytes32 _hash) constant returns (Mode, address, uint, uint, uint);
-}
-
-contract Deed {
-    function owner() returns (bool);
-}
+import './AbstractENS.sol';
+import './HashRegistrarSimplified.sol'; // For Deed
 
 
 contract DomainSaleRegistry {
@@ -43,7 +33,7 @@ contract DomainSaleRegistry {
     mapping(bytes32 => Sale) sales; // nameHash => Sale
 
     // The ENS contract
-    ENS ens;
+    AbstractENS ens;
 
     // The domain sale process is as follows:
     //   1) The seller starts the domain sale.  To do this they must set ownership
@@ -66,7 +56,7 @@ contract DomainSaleRegistry {
         _;
     }
 
-    function DomainSaleRegistry(ENS _ens) {
+    function DomainSaleRegistry(AbstractENS _ens) {
         ens = _ens;
     }
 
