@@ -11,12 +11,7 @@ contract DomainSaleRegistry {
 
     address private contractOwner;
 
-    struct Sale {
-        // The sales agent for the domain
-        DomainSaleAgent agent;
-    }
-
-    mapping(bytes32 => Sale) public sales; // nameHash => Sale
+    mapping(bytes32 => DomainSaleAgent) public sales; // nameHash => DomainSaleAgent
 
     // Sale events
     event Start(string domain);
@@ -31,7 +26,7 @@ contract DomainSaleRegistry {
     // TODO is this necessary?  Can we access it directly?
     function agent(string domain) public constant returns (DomainSaleAgent) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
-        return sales[domainNameHash].agent;
+        return sales[domainNameHash];
     }
 
 
@@ -50,13 +45,13 @@ contract DomainSaleRegistry {
 
     modifier ifBiddingOpen(string domain) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
-        require(sales[domainNameHash].agent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
+        require(sales[domainNameHash].bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
         _;
     }
 
     modifier ifSaleHasNoBids(string domain) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
-        require(sales[domainNameHash].agent.hasBids(domainNameHash) == false);
+        require(sales[domainNameHash].hasBids(domainNameHash) == false);
         _;
     }
 
@@ -71,7 +66,7 @@ contract DomainSaleRegistry {
     function acceptingBids(string domain) constant returns (bool) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
 
-        return (sales[domainNameHash].agent != address(0) && sales[domainNameHash].agent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
+        return (sales[domainNameHash] != address(0) && sales[domainNameHash].bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
     }
 
     /**
@@ -104,7 +99,7 @@ contract DomainSaleRegistry {
         agent.start(domainNameHash, contractOwner, msg.sender, referer, reserve, finishesAt);
 
         // Store details about the sale
-        sales[domainNameHash].agent = agent;
+        sales[domainNameHash] = agent;
 
         Start(domain);
     }
@@ -115,7 +110,7 @@ contract DomainSaleRegistry {
     function bid(string domain) public payable ifBiddingOpen(domain) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
         
-        DomainSaleAgent agent = sales[domainNameHash].agent;
+        DomainSaleAgent agent = sales[domainNameHash];
         agent.bid.value(msg.value)(domainNameHash, msg.sender);
 
         Bid(domain, msg.value);
@@ -134,9 +129,9 @@ contract DomainSaleRegistry {
         // require(agent.isActive() == true);
         // require(agent.HasBids() == false);
 
-        DomainSaleAgent agent = sales[domainNameHash].agent;
+        DomainSaleAgent agent = sales[domainNameHash];
         // Ensure that this sale is closed
-        require(sales[domainNameHash].agent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Closed);
+        require(sales[domainNameHash].bidding(domainNameHash) == DomainSaleAgent.Bidding.Closed);
 
         // Hand ownership of the deed and domain to the winner
         var winner = agent.winner(domainNameHash);
@@ -150,7 +145,7 @@ contract DomainSaleRegistry {
         agent.finish(domainNameHash);
 
         // Remove the sale
-        sales[domainNameHash].agent = DomainSaleAgent(0);
+        sales[domainNameHash] = DomainSaleAgent(0);
 
         Finish(domain);
     }
@@ -164,7 +159,7 @@ contract DomainSaleRegistry {
         bytes32 domainLabelHash = sha3(domain);
         bytes32 domainNameHash = sha3(rootNameHash, domainLabelHash);
 
-        DomainSaleAgent agent = sales[domainNameHash].agent;
+        DomainSaleAgent agent = sales[domainNameHash];
         // confirm correct ownership of the deed (via previousowner)
         // confirm auction has no bids
         // revert ownership of the deed
@@ -180,7 +175,7 @@ contract DomainSaleRegistry {
         agent.cancel(domainNameHash);
 
         // Remove the sale
-        sales[domainNameHash].agent = DomainSaleAgent(0);
+        sales[domainNameHash] = DomainSaleAgent(0);
 
         Cancel(domain);
     }
