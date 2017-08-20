@@ -11,17 +11,27 @@ contract DomainSaleAgent {
 
     DomainSaleRegistry public registry;
 
+    // An event that is triggered when a transfer fails
+    // TODO remove this when we throw on failure
+    event TransferFailed(address from, address to, uint256 amount, uint256 balance);
+
     struct Sale {
+        // The address of the admin of the domain sale
+        address admin;
+        // The address of the seller of this domain
+        address seller;
+        // The address of the referer for this sale
+        address referer;
+
         // The reserve value for this sale (0 == no reserve)
         uint256 reserve;
         // The timestamp at which this sale finishes (0 == never)
         uint256 finishesAt;
 
-        // The bids for the domain
-        mapping(address => uint256) bids; // TODO make strut
-
-        // The best bid for this sale
-        uint256 bestBid;
+        // The winning bid for this sale
+        uint256 winningBid;
+        // The address of the winning bidder
+        address winningBidder;
     }
 
     // Domains being sold
@@ -38,27 +48,56 @@ contract DomainSaleAgent {
     /**
      * @dev start a domain sale using this agent
      */
-    function start(bytes32 nameHash, uint256 reserve, uint256 finishesAt) public {
-        sales[nameHash].reserve = reserve;
-        sales[nameHash].finishesAt = finishesAt;
+    function start(bytes32 domainHash, address admin, address seller, address referer, uint256 reserve, uint256 finishesAt) public {
+        sales[domainHash].admin = admin;
+        sales[domainHash].seller = seller;
+        sales[domainHash].referer = referer;
+        sales[domainHash].reserve = reserve;
+        sales[domainHash].finishesAt = finishesAt;
     }
 
     /**
      * @dev bid on a sale.  Implemented by the subclass.
      */
-    function bid(bytes32 domainHash) public payable;
+    function bid(bytes32 domainHash, address bidder) public payable;
+
+    /**
+     * @dev finish a successful sale.  Implemented by the subclass.
+     */
+    function finish(bytes32 domainHash) public;
+
+    /**
+     * @dev cancel a successful sale.  Implemented by the subclass.
+     */
+    function cancel(bytes32 domainHash) public;
 
     /**
      * @dev state if bidding is open.  Implemented by the subclass.
      * @return Open or Closed
      */
-    function bidding(bytes32 nameHash) constant returns (Bidding);
+    function bidding(bytes32 domainHash) constant returns (Bidding);
+
+    /**
+     * @dev obtain the seller of the domain
+     * @return the address of the winner
+     */
+    function winner(bytes32 domainHash) public constant returns (address) {
+        return sales[domainHash].winningBidder;
+    }
+
+    /**
+     * @dev obtain the seller of the domain
+     * @return the address of the seller
+     */
+    function seller(bytes32 domainHash) public constant returns (address) {
+        return sales[domainHash].seller;
+    }
 
     /**
      * @dev state if this auction has bids.
      * @return true or false
      */
     function hasBids(bytes32 domainHash) public constant returns (bool) {
-        return sales[domainHash].bestBid != 0;
+        return sales[domainHash].winningBid != 0;
     }
 }

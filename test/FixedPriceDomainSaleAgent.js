@@ -25,11 +25,15 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
     const testdomainBidder1 = accounts[5];
     const testdomainBidder2 = accounts[6];
 
-    // Carry registrar over tests
+    // Carry ENS etc. over tests
+    var registry;
     var registrar;
+    // Carry DomainSale over tests
+    var saleRegistry;
+    var agent;
 
     it('should set up the registrar and test domains', async () => {
-        const registry = await ENS.deployed();
+        registry = await ENS.deployed();
         registrar = await MockEnsRegistrar.new(registry.address, ethNameHash, {from: registrarOwner, value: web3.toWei(10, 'ether')});
         await registry.setSubnodeOwner("0x0", ethLabelHash, registrar.address);
         await registrar.register(testdomain1LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
@@ -37,9 +41,8 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
     });
 
     it('should start a fixed-price sale', async () => {
-        const registry = await ENS.deployed();
-        const saleRegistry = await DomainSaleRegistry.deployed();
-        const agent = await FixedPriceDomainSaleAgent.deployed();
+        saleRegistry = await DomainSaleRegistry.deployed();
+        agent = await FixedPriceDomainSaleAgent.deployed();
 
         // Transfer deed ownership to the domain sale contract
         await registrar.transfer(testdomain1LabelHash, saleRegistry.address, {from: testdomainOwner});
@@ -51,53 +54,56 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), false);
 
         // Start the auction for testdomain1
-        await saleRegistry.startSale('testdomain1', agent.address, 0, web3.toWei(0.1, 'ether'), 0);
+        await saleRegistry.startSale('testdomain1', agent.address, referer, web3.toWei(0.1, 'ether'), 0, {from: testdomainOwner});
 
         // Ensure that the bidding for the auction is now open
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), true);
     });
 
     it('should bid on a fixed-price sale', async () => {
-        const saleRegistry = await DomainSaleRegistry.deployed();
-
         // Ensure that bidding for the auction is open
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), true);
 
+        const agent = await saleRegistry.agent('testdomain1');
+        const priorFunds = await web3.eth.getBalance(agent);
+
         // Submit the bid
         await saleRegistry.bid('testdomain1', {from: testdomainBidder1, value: web3.toWei(0.1, 'ether')});
+
+        // Ensure that the sales agent contains the added Ether
+        const addedFunds = await web3.eth.getBalance(agent) - priorFunds;
+        assert.equal(addedFunds, web3.toWei(0.1, 'ether'));
 
         // Ensure that bidding for the auction is now closed
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), false);
     });
 
     it('should finish a fixed-price sale', async () => {
-        const saleRegistry = await DomainSaleRegistry.deployed();
-
         // Obtain the balance of the parties in the sale
-        const priorSellerBalance = web3.eth.getBalance(testdomainOwner);
-        const priorBuyerBalance = web3.eth.getBalance(testdomainBidder1);
-        const priorRefererBalance = web3.eth.getBalance(referer);
-        const priorDomainSaleOwnerBalance = web3.eth.getBalance(domainSaleOwner);
+        const priorSellerBalance = await web3.eth.getBalance(testdomainOwner);
+        const priorRefererBalance = await web3.eth.getBalance(referer);
+        const priorDomainSaleOwnerBalance = await web3.eth.getBalance(domainSaleOwner);
 
         // Finish the sale
-        const finishTx = await saleRegistry.finishSale('testdomain1'); // From whom?
+        const finishTx = await saleRegistry.finishSale('testdomain1', {from: ensOwner});
 
         // Ensure that the seller has the funds
-        const updatedSellerBalance = web3.eth.getBalance(testdomainOwner);
-        const updatedBuyerBalance = web3.eth.getBalance(testdomainBidder1);
-        const updatedRefererBalance = web3.eth.getBalance(referer);
-        const updatedDomainSaleOwnerBalance = web3.eth.getBalance(domainSaleOwner);
+        const updatedSellerBalance = await web3.eth.getBalance(testdomainOwner);
+        const updatedRefererBalance = await web3.eth.getBalance(referer);
+        const updatedDomainSaleOwnerBalance = await web3.eth.getBalance(domainSaleOwner);
 
         // Ensure that the funds are accurate
         const totalFunds = web3.toWei(0.1, 'ether');
-        const buyerFunds = - totalFunds;
         const sellerFunds = totalFunds * 0.975;
-        const domainSaleFunds = totalFunds * 0.025 * 0.9;
-        const refererFunds = totalFunds * 0.025 * 0.1;
+        const domainSaleFunds = totalFunds * 0.02;
+        const refererFunds = totalFunds * 0.005;
 
         assert.equal(updatedSellerBalance - priorSellerBalance, sellerFunds);
-        assert.equal(updatedBuyerBalance - priorBuyerBalance, buyerFunds);
-        assert.equal(updatedDomainSaleOwnerBalance - priorDomainSaleOwnerBalance, domainSaleFunds);
         assert.equal(updatedRefererBalance - priorRefererBalance, refererFunds);
+        assert.equal(updatedDomainSaleOwnerBalance - priorDomainSaleOwnerBalance, domainSaleFunds);
+
+        // Ensure that the buyer has the deed ownership
+        const entry = await registrar.entries(testdomain1LabelHash);
+        assert.equal(await Deed.at(entry[1]).owner(), testdomainBidder1);
     });
 });
