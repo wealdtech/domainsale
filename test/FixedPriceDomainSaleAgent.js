@@ -21,7 +21,7 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
     const registrarOwner = accounts[1];
     const domainSaleOwner = accounts[2];
     const testdomainOwner = accounts[3];
-    const referer = accounts[4];
+    const referrer = accounts[4];
     const testdomainBidder1 = accounts[5];
     const testdomainBidder2 = accounts[6];
 
@@ -54,7 +54,7 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), false);
 
         // Start the auction for testdomain1
-        await saleRegistry.startSale('testdomain1', agent.address, referer, web3.toWei(0.1, 'ether'), 0, {from: testdomainOwner});
+        await saleRegistry.startSale('testdomain1', agent.address, referrer, web3.toWei(0.1, 'ether'), 0, {from: testdomainOwner});
 
         // Ensure that the bidding for the auction is now open
         assert.equal(await saleRegistry.acceptingBids('testdomain1'), true);
@@ -68,7 +68,7 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
         const priorFunds = await web3.eth.getBalance(agent);
 
         // Submit the bid
-        await saleRegistry.bid('testdomain1', {from: testdomainBidder1, value: web3.toWei(0.1, 'ether')});
+        await saleRegistry.bid('testdomain1', referrer, {from: testdomainBidder1, value: web3.toWei(0.1, 'ether')});
 
         // Ensure that the sales agent contains the added Ether
         const addedFunds = await web3.eth.getBalance(agent) - priorFunds;
@@ -81,7 +81,7 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
     it('should finish a fixed-price sale', async () => {
         // Obtain the balance of the parties in the sale
         const priorSellerBalance = await web3.eth.getBalance(testdomainOwner);
-        const priorRefererBalance = await web3.eth.getBalance(referer);
+        const priorReferrerBalance = await web3.eth.getBalance(referrer);
         const priorDomainSaleOwnerBalance = await web3.eth.getBalance(domainSaleOwner);
 
         // Finish the sale
@@ -89,17 +89,17 @@ contract('FixedPriceDomainSaleAgent', (accounts) => {
 
         // Ensure that the seller has the funds
         const updatedSellerBalance = await web3.eth.getBalance(testdomainOwner);
-        const updatedRefererBalance = await web3.eth.getBalance(referer);
+        const updatedReferrerBalance = await web3.eth.getBalance(referrer);
         const updatedDomainSaleOwnerBalance = await web3.eth.getBalance(domainSaleOwner);
 
         // Ensure that the funds are accurate
         const totalFunds = web3.toWei(0.1, 'ether');
-        const sellerFunds = totalFunds * 0.975;
-        const domainSaleFunds = totalFunds * 0.02;
-        const refererFunds = totalFunds * 0.005;
+        const sellerFunds = totalFunds * 0.98;
+        const domainSaleFunds = totalFunds * 0.01;
+        const referrerFunds = totalFunds * 0.01;
 
         assert.equal(updatedSellerBalance - priorSellerBalance, sellerFunds);
-        assert.equal(updatedRefererBalance - priorRefererBalance, refererFunds);
+        assert.equal(updatedReferrerBalance - priorReferrerBalance, referrerFunds);
         assert.equal(updatedDomainSaleOwnerBalance - priorDomainSaleOwnerBalance, domainSaleFunds);
 
         // Ensure that the buyer has the deed ownership

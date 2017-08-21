@@ -33,12 +33,12 @@ contract Deed {
     bool active;
 
     modifier onlyRegistrar {
-        if (msg.sender != registrar) throw;
+        if (msg.sender != registrar) revert();
         _;
     }
 
     modifier onlyActive {
-        if (!active) throw;
+        if (!active) revert();
         _;
     }
 
@@ -51,7 +51,7 @@ contract Deed {
     }
 
     function setOwner(address newOwner) onlyRegistrar {
-        if (newOwner == 0) throw;
+        if (newOwner == 0) revert();
         previousOwner = owner;  // This allows contracts to check who sent them the ownership
         owner = newOwner;
         OwnerChanged(newOwner);
@@ -63,10 +63,10 @@ contract Deed {
 
     function setBalance(uint newValue, bool throwOnFailure) onlyRegistrar onlyActive {
         // Check if it has enough balance to set the value
-        if (value < newValue) throw;
+        if (value < newValue) revert();
         value = newValue;
         // Send the difference to the owner
-        if (!owner.send(this.balance - newValue) && throwOnFailure) throw;
+        if (!owner.send(this.balance - newValue) && throwOnFailure) revert();
     }
 
     /**
@@ -76,7 +76,7 @@ contract Deed {
      */
     function closeDeed(uint refundRatio) onlyRegistrar onlyActive {
         active = false;
-        if (! burn.send(((1000 - refundRatio) * this.balance)/1000)) throw;
+        if (! burn.send(((1000 - refundRatio) * this.balance)/1000)) revert();
         DeedClosed();
         destroyDeed();
     }
@@ -85,7 +85,7 @@ contract Deed {
      * @dev Close a deed and refund a specified fraction of the bid value
      */
     function destroyDeed() {
-        if (active) throw;
+        if (active) revert();
         
         // Instead of selfdestruct(owner), invoke owner fallback function to allow
         // owner to log an event if desired; but owner should also be aware that
@@ -137,18 +137,18 @@ contract Registrar {
     //   Reveal -> Open (if nobody bid)
     //   Owned -> Open (releaseDeed or invalidateName)
     function state(bytes32 _hash) constant returns (Mode) {
-        var entry = _entries[_hash];
+        entry storage h = _entries[_hash];
         
         if (!isAllowed(_hash, now)) {
             return Mode.NotYetAvailable;
-        } else if (now < entry.registrationDate) {
-            if (now < entry.registrationDate - revealPeriod) {
+        } else if (now < h.registrationDate) {
+            if (now < h.registrationDate - revealPeriod) {
                 return Mode.Auction;
             } else {
                 return Mode.Reveal;
             }
         } else {
-            if (entry.highestBid == 0) {
+            if (h.highestBid == 0) {
                 return Mode.Open;
             } else {
                 return Mode.Owned;
@@ -157,22 +157,22 @@ contract Registrar {
     }
 
     modifier inState(bytes32 _hash, Mode _state) {
-        if (state(_hash) != _state) throw;
+        if (state(_hash) != _state) revert();
         _;
     }
 
     modifier onlyOwner(bytes32 _hash) {
-        if (state(_hash) != Mode.Owned || msg.sender != _entries[_hash].deed.owner()) throw;
+        if (state(_hash) != Mode.Owned || msg.sender != _entries[_hash].deed.owner()) revert();
         _;
     }
 
     modifier registryOpen() {
-        if (now < registryStarted  || now > registryStarted + 4 years || ens.owner(rootNode) != address(this)) throw;
+        if (now < registryStarted  || now > registryStarted + 4 years || ens.owner(rootNode) != address(this)) revert();
         _;
     }
 
     function entries(bytes32 _hash) constant returns (Mode, address, uint, uint, uint) {
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         return (state(_hash), h.deed, h.registrationDate, h.value, h.highestBid);
     }
 
@@ -195,7 +195,7 @@ contract Registrar {
      * @param b A number to compare
      * @return The maximum of two unsigned integers
      */
-    function max(uint a, uint b) internal constant returns (uint max) {
+    function max(uint a, uint b) internal constant returns (uint) {
         if (a > b)
             return a;
         else
@@ -209,7 +209,7 @@ contract Registrar {
      * @param b A number to compare
      * @return The minimum of two unsigned integers
      */
-    function min(uint a, uint b) internal constant returns (uint min) {
+    function min(uint a, uint b) internal constant returns (uint) {
         if (a < b)
             return a;
         else
@@ -296,9 +296,9 @@ contract Registrar {
     function startAuction(bytes32 _hash) registryOpen() {
         var mode = state(_hash);
         if (mode == Mode.Auction) return;
-        if (mode != Mode.Open) throw;
+        if (mode != Mode.Open) revert();
 
-        entry newAuction = _entries[_hash];
+        entry storage newAuction = _entries[_hash];
         newAuction.registrationDate = now + totalAuctionLength;
         newAuction.value = 0;
         newAuction.highestBid = 0;
@@ -348,12 +348,12 @@ contract Registrar {
      * @param sealedBid A sealedBid, created by the shaBid function
      */
     function newBid(bytes32 sealedBid) payable {
-        if (address(sealedBids[msg.sender][sealedBid]) > 0) throw;
-        if (msg.value < minPrice) throw;
+        if (address(sealedBids[msg.sender][sealedBid]) > 0) revert();
+        if (msg.value < minPrice) revert();
 
         // Creates a new hash contract with the owner
-        Deed newBid = (new Deed).value(msg.value)(msg.sender);
-        sealedBids[msg.sender][sealedBid] = newBid;
+        Deed deed = (new Deed).value(msg.value)(msg.sender);
+        sealedBids[msg.sender][sealedBid] = deed;
         NewBid(sealedBid, msg.sender, msg.value);
     }
 
@@ -381,10 +381,10 @@ contract Registrar {
     function unsealBid(bytes32 _hash, uint _value, bytes32 _salt) {
         bytes32 seal = shaBid(_hash, msg.sender, _value, _salt);
         Deed bid = sealedBids[msg.sender][seal];
-        if (address(bid) == 0) throw;
+        if (address(bid) == 0) revert();
 
         sealedBids[msg.sender][seal] = Deed(0);
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         uint value = min(_value, bid.value());
         bid.setBalance(value, true);
 
@@ -395,7 +395,7 @@ contract Registrar {
             BidRevealed(_hash, msg.sender, value, 1);
         } else if (auctionState != Mode.Reveal) {
             // Invalid phase
-            throw;
+            revert();
         } else if (value < minPrice || bid.creationDate() > h.registrationDate - revealPeriod) {
             // Bid too low or too late, refund 99.5%
             bid.closeDeed(995);
@@ -441,7 +441,7 @@ contract Registrar {
         // 9 days (2 weeks - totalAuctionLength), otherwise their bid will be
         // cancellable by anyone.
         if (address(bid) == 0
-            || now < bid.creationDate() + totalAuctionLength + 2 weeks) throw;
+            || now < bid.creationDate() + totalAuctionLength + 2 weeks) revert();
 
         // Send the canceller 0.5% of the bid, and burn the rest.
         bid.setOwner(msg.sender);
@@ -456,7 +456,7 @@ contract Registrar {
      * @param _hash The hash of the name the auction is for
      */
     function finalizeAuction(bytes32 _hash) onlyOwner(_hash) {
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         
         // Handles the case when there's only a single bidder (h.value is zero)
         h.value =  max(h.value, minPrice);
@@ -473,9 +473,9 @@ contract Registrar {
      * @param newOwner The address to transfer ownership to
      */
     function transfer(bytes32 _hash, address newOwner) onlyOwner(_hash) {
-        if (newOwner == 0) throw;
+        if (newOwner == 0) revert();
 
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         h.deed.setOwner(newOwner);
         trySetSubnodeOwner(_hash, newOwner);
     }
@@ -487,9 +487,9 @@ contract Registrar {
      * @param _hash The node to release
      */
     function releaseDeed(bytes32 _hash) onlyOwner(_hash) {
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         Deed deedContract = h.deed;
-        if (now < h.registrationDate + 1 years && ens.owner(rootNode) == address(this)) throw;
+        if (now < h.registrationDate + 1 years && ens.owner(rootNode) == address(this)) revert();
 
         h.value = 0;
         h.highestBid = 0;
@@ -510,10 +510,10 @@ contract Registrar {
      * @param unhashedName An invalid name to search for in the registry.
      */
     function invalidateName(string unhashedName) inState(sha3(unhashedName), Mode.Owned) {
-        if (strlen(unhashedName) > 6) throw;
+        if (strlen(unhashedName) > 6) revert();
         bytes32 hash = sha3(unhashedName);
 
-        entry h = _entries[hash];
+        entry storage h = _entries[hash];
 
         _tryEraseSingleNode(hash);
 
@@ -544,8 +544,8 @@ contract Registrar {
      *        [sha3('foo'), sha3('bar')].
      */
     function eraseNode(bytes32[] labels) {
-        if (labels.length == 0) throw;
-        if (state(labels[labels.length - 1]) == Mode.Owned) throw;
+        if (labels.length == 0) revert();
+        if (state(labels[labels.length - 1]) == Mode.Owned) revert();
 
         _eraseNodeHierarchy(labels.length - 1, labels, rootNode);
     }
@@ -583,10 +583,10 @@ contract Registrar {
      */
     function transferRegistrars(bytes32 _hash) onlyOwner(_hash) {
         var registrar = ens.owner(rootNode);
-        if (registrar == address(this)) throw;
+        if (registrar == address(this)) revert();
 
         // Migrate the deed
-        entry h = _entries[_hash];
+        entry storage h = _entries[_hash];
         h.deed.setRegistrar(registrar);
 
         // Call the new registrar to accept the transfer

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import './DomainSaleAgent.sol';
 import './AbstractENS.sol';
@@ -72,15 +72,14 @@ contract DomainSaleRegistry {
     /**
      * @dev Start a domain sale.
      * @param domain domain for sale (e.g. 'mydomain' if selling 'mydomain.eth')
-     * @param agent the address of the sales agent to be used for the sale
-     * @param referer a referer who can claim some of the sale value
+     * @param saleAgent the address of the sale agent to be used for the sale
+     * @param referrer a referrer who can claim some of the sale value
      */
-    function startSale(string domain, DomainSaleAgent agent, address referer, uint256 reserve, uint256 finishesAt) {
+    function startSale(string domain, DomainSaleAgent saleAgent, address referrer, uint256 reserve, uint256 finishesAt) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
 
-        // Ensure that this sale is not currently running
-        // TODO 
-        //require(agent.isActive == false);
+        // Ensure that this sale is not already active
+        require(!saleAgent.active(domainNameHash));
 
         // Obtain the deed for the name
         var registrar = Registrar(registry.owner(rootNameHash));
@@ -96,10 +95,10 @@ contract DomainSaleRegistry {
         registry.setResolver(domainNameHash, 0);
 
         // Start the auction according to the agent's rules
-        agent.start(domainNameHash, contractOwner, msg.sender, referer, reserve, finishesAt);
+        saleAgent.start(domainNameHash, contractOwner, msg.sender, referrer, reserve, finishesAt);
 
         // Store details about the sale
-        sales[domainNameHash] = agent;
+        sales[domainNameHash] = saleAgent;
 
         Start(domain);
     }
@@ -107,11 +106,16 @@ contract DomainSaleRegistry {
     /**
      * @dev Bid on a domain
      */
-    function bid(string domain) public payable ifBiddingOpen(domain) {
+    function bid(string domain, address referrer) public payable ifBiddingOpen(domain) {
         bytes32 domainNameHash = sha3(rootNameHash, sha3(domain));
         
-        DomainSaleAgent agent = sales[domainNameHash];
-        agent.bid.value(msg.value)(domainNameHash, msg.sender);
+        DomainSaleAgent saleAgent = sales[domainNameHash];
+        // Ensure that this sale is active
+        require(saleAgent.active(domainNameHash));
+        // Ensure that this sale is open
+        require(saleAgent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
+
+        saleAgent.bid.value(msg.value)(domainNameHash, msg.sender, referrer);
 
         Bid(domain, msg.value);
     }
@@ -120,21 +124,18 @@ contract DomainSaleRegistry {
      * @dev Finish a domain sale
      * @param domain domain for sale (e.g. 'mydomain' if selling 'mydomain.eth')
      */
-    function finishSale(string domain) public { // TODO who can call this?
+    function finishSale(string domain) public {
         bytes32 domainLabelHash = sha3(domain);
         bytes32 domainNameHash = sha3(rootNameHash, domainLabelHash);
 
-        // Ensure that this sale is valid
-        // TODO
-        // require(agent.isActive() == true);
-        // require(agent.HasBids() == false);
-
-        DomainSaleAgent agent = sales[domainNameHash];
+        DomainSaleAgent saleAgent = sales[domainNameHash];
+        // Ensure that this sale is active
+        require(saleAgent.active(domainNameHash));
         // Ensure that this sale is closed
-        require(sales[domainNameHash].bidding(domainNameHash) == DomainSaleAgent.Bidding.Closed);
+        require(saleAgent.bidding(domainNameHash) == DomainSaleAgent.Bidding.Closed);
 
         // Hand ownership of the deed and domain to the winner
-        var winner = agent.winner(domainNameHash);
+        var winner = saleAgent.winner(domainNameHash);
         // Safety check before we transfer the deed
         require(winner != 0);
 
@@ -142,7 +143,7 @@ contract DomainSaleRegistry {
         registrar.transfer(domainLabelHash, winner);
 
         // Tell the agent that we've finished the sale
-        agent.finish(domainNameHash);
+        saleAgent.finish(domainNameHash);
 
         // Remove the sale
         sales[domainNameHash] = DomainSaleAgent(0);
@@ -159,20 +160,20 @@ contract DomainSaleRegistry {
         bytes32 domainLabelHash = sha3(domain);
         bytes32 domainNameHash = sha3(rootNameHash, domainLabelHash);
 
-        DomainSaleAgent agent = sales[domainNameHash];
+        DomainSaleAgent saleAgent = sales[domainNameHash];
         // confirm correct ownership of the deed (via previousowner)
         // confirm auction has no bids
         // revert ownership of the deed
 
         // Hand ownership of the deed and domain back to the seller
-        var seller = agent.seller(domainNameHash);
+        var seller = saleAgent.seller(domainNameHash);
         // Safety check before we transfer the deed
         require(seller != 0);
 
         var registrar = Registrar(registry.owner(rootNameHash));
         registrar.transfer(domainLabelHash, seller);
 
-        agent.cancel(domainNameHash);
+        saleAgent.cancel(domainNameHash);
 
         // Remove the sale
         sales[domainNameHash] = DomainSaleAgent(0);

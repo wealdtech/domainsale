@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.15;
 
 import './DomainSaleRegistry.sol';
 
@@ -11,6 +11,11 @@ contract DomainSaleAgent {
 
     DomainSaleRegistry public registry;
 
+    modifier onlyFromRegistry() {
+      require(msg.sender == address(registry));
+      _;
+    }
+
     // An event that is triggered when a transfer fails
     // TODO remove this when we throw on failure
     event TransferFailed(address from, address to, uint256 amount, uint256 balance);
@@ -20,8 +25,10 @@ contract DomainSaleAgent {
         address admin;
         // The address of the seller of this domain
         address seller;
-        // The address of the referer for this sale
-        address referer;
+        // The address of the referrer of the seller
+        address saleReferrer;
+        // The address of the referrer of the winning bidder
+        address winReferrer;
 
         // The reserve value for this sale (0 == no reserve)
         uint256 reserve;
@@ -48,10 +55,10 @@ contract DomainSaleAgent {
     /**
      * @dev start a domain sale using this agent
      */
-    function start(bytes32 domainHash, address admin, address seller, address referer, uint256 reserve, uint256 finishesAt) public {
+    function start(bytes32 domainHash, address admin, address seller, address referrer, uint256 reserve, uint256 finishesAt) public {
         sales[domainHash].admin = admin;
         sales[domainHash].seller = seller;
-        sales[domainHash].referer = referer;
+        sales[domainHash].saleReferrer = referrer;
         sales[domainHash].reserve = reserve;
         sales[domainHash].finishesAt = finishesAt;
     }
@@ -59,17 +66,35 @@ contract DomainSaleAgent {
     /**
      * @dev bid on a sale.  Implemented by the subclass.
      */
-    function bid(bytes32 domainHash, address bidder) public payable;
+    function bid(bytes32 domainHash, address bidder, address referrer) public payable;
 
     /**
      * @dev finish a successful sale.  Implemented by the subclass.
      */
-    function finish(bytes32 domainHash) public;
+    function finish(bytes32 domainHash) public {
+        // Clear out the structure
+        sales[domainHash].admin = 0;
+        sales[domainHash].seller = 0;
+        sales[domainHash].saleReferrer = 0;
+        sales[domainHash].winReferrer = 0;
+        sales[domainHash].reserve = 0;
+        sales[domainHash].finishesAt = 0;
+        sales[domainHash].winningBid = 0;
+        sales[domainHash].winningBidder = 0;
+    }
 
     /**
      * @dev cancel a successful sale.  Implemented by the subclass.
      */
     function cancel(bytes32 domainHash) public;
+
+    /**
+     * @dev state if a sale is active.
+     * @return true if the sale is active; otherwise false.
+     */
+    function active(bytes32 domainHash) constant returns (bool) {
+        return (sales[domainHash].admin != 0);
+    }
 
     /**
      * @dev state if bidding is open.  Implemented by the subclass.
