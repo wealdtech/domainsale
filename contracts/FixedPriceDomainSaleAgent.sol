@@ -1,7 +1,8 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.11;
 
 import './DomainSaleRegistry.sol';
 import './DomainSaleAgent.sol';
+
 
 /**
  * @dev A fixed-price domain sale agent.  This accepts a single bid at or
@@ -73,7 +74,7 @@ contract FixedPriceDomainSaleAgent is DomainSaleAgent {
     }
 
     function active(bytes32 nameHash) public constant returns (bool) {
-      return (sales[nameHash].admin != address(0));
+        return (sales[nameHash].admin != address(0));
     }
 
     function bidding(bytes32 nameHash) public constant returns (Bidding) {

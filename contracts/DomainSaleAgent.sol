@@ -1,6 +1,7 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.11;
 
 import './DomainSaleRegistry.sol';
+
 
 /**
  * @dev The base domain sale agent.  This is abstract, and provides the
@@ -12,8 +13,8 @@ contract DomainSaleAgent {
     DomainSaleRegistry public registry;
 
     modifier onlyFromRegistry() {
-      require(msg.sender == address(registry));
-      _;
+        require(msg.sender == address(registry));
+        _;
     }
 
     // An event that is triggered when a transfer fails
