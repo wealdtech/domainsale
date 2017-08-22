@@ -7,28 +7,20 @@ import './HashRegistrarSimplified.sol'; // For Deed
 
 contract DomainSaleRegistry {
     // namehash('eth')
-    bytes32 constant ROOT_NAME_HASH = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
+    bytes32 private constant ROOT_NAME_HASH = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
 
     address private contractOwner;
 
-    mapping(bytes32 => DomainSaleAgent) public sales; // nameHash => DomainSaleAgent
+    mapping(bytes32 => DomainSaleAgent) private sales; // nameHash => DomainSaleAgent
 
     // Sale events
-    event Start(string domain);
+    event Start(string domain, uint256 reserve);
     event Bid(string domain, uint256 amount);
     event Finish(string domain);
     event Cancel(string domain);
 
     // The ENS contract
-    AbstractENS registry;
-
-    // Access to the sale structure
-    // TODO is this necessary?  Can we access it directly?
-//    function agent(string domain) public constant returns (DomainSaleAgent) {
-//        bytes32 domainNameHash = sha3(ROOT_NAME_HASH, sha3(domain));
-//        return sales[domainNameHash];
-//    }
-
+    AbstractENS private registry;
 
     // The domain sale process is as follows:
     //   1) The seller starts the domain sale.  To do this they must set ownership
@@ -63,7 +55,7 @@ contract DomainSaleRegistry {
     /**
      * @dev See if a domain sale is accepting bids.
      */
-    function acceptingBids(string domain) constant returns (bool) {
+    function acceptingBids(string domain) public constant returns (bool) {
         bytes32 domainNameHash = sha3(ROOT_NAME_HASH, sha3(domain));
 
         return (sales[domainNameHash] != address(0) && sales[domainNameHash].bidding(domainNameHash) == DomainSaleAgent.Bidding.Open);
@@ -75,7 +67,7 @@ contract DomainSaleRegistry {
      * @param saleAgent the address of the sale agent to be used for the sale
      * @param referrer a referrer who can claim some of the sale value
      */
-    function startSale(string domain, DomainSaleAgent saleAgent, address referrer, uint256 reserve, uint256 finishesAt) {
+    function startSale(string domain, DomainSaleAgent saleAgent, address referrer, uint256 reserve, uint256 finishesAt) public {
         bytes32 domainNameHash = sha3(ROOT_NAME_HASH, sha3(domain));
 
         // Ensure that this sale is not already active
@@ -100,7 +92,7 @@ contract DomainSaleRegistry {
         // Store details about the sale
         sales[domainNameHash] = saleAgent;
 
-        Start(domain);
+        Start(domain, reserve);
     }
 
     /**
@@ -156,7 +148,7 @@ contract DomainSaleRegistry {
      *      no bids for the domain.
      * @param domain domain for sale (e.g. 'mydomain' if selling 'mydomain.eth')
      */
-    function cancelSale(string domain) ifBiddingOpen(domain) ifSaleHasNoBids(domain) {
+    function cancelSale(string domain) ifBiddingOpen(domain) ifSaleHasNoBids(domain) public {
         bytes32 domainLabelHash = sha3(domain);
         bytes32 domainNameHash = sha3(ROOT_NAME_HASH, domainLabelHash);
 
@@ -180,27 +172,4 @@ contract DomainSaleRegistry {
 
         Cancel(domain);
     }
-
-    // Contracts:
-    //   - DomainSaleRegistry:
-    //     - contains the registry of domains for sale
-    //     - single instance
-    //     - created by Trust
-    //   - IDomainSaleAgent
-    //     - contains the methods for the domain sale
-    //       - data methods
-    //         - reserve(label) returns the reserve value for the sale (can be 0)
-    //         - allowsMultipleBids(label) returns true if the sale is multi-bid (i.e. doesn't stop after a single bid)
-    //         - finishesAt(label) block the auction finishes - only if allowMultipleBids(label) is true and finishesWith
-    //         - isFinished(label) returns true if the auction has finished
-    //       - functional methods
-    //         - start(label) initialises the sales process
-    //         - bid(address, label) places a bid on the label
-    //     - interface
-    //   - SimpleDomainSaleAgent
-    //   - VisibleAuctionDomainSaleAgent
-    //   - BlindAuctionDomainSaleAgent
-    //     - manages the sale of the domain
-    //     - single instance
-    //     - created by DomainSaleRegistry
 }
