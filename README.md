@@ -1,6 +1,10 @@
-DomainSale allows domain holders to advertise ENS domains for sale and controls the sale of the same.
+## DomainSale
 
-# Putting domains up for sale
+Sell ENS domains through a smart contract.
+
+https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wealdtech/domainsale?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
+## Putting domains up for sale
 
 Prior to putting the domain up for sale the user must transfer the deed for the domain to the DomainSale contract.  [details required when we have integration with wallets]
 
@@ -16,11 +20,11 @@ The seller starts the sale by transmitting a `sell()` transaction.  The argument
 
 When a domain is put up for sale an event is sent, allowing websites and apps to maintain a list of domains for sale.
 
-# Sale rules
+## Sale rules
 
 Only one type of sale (fixed-price or auction) may be active for a domain at one time.  At current this means that there is no option to carry out a fixed-price purchase of a domain which is undergoing an auction, even if a fixed price is set.  The rules of the two types of sale are as follows:
 
-## Fixed-price sale rules
+### Fixed-price sale rules
 
 A fixed-price sale accepts a single `buy()` at or above the price set by the seller, which immediately ends the sale.
 
@@ -28,7 +32,7 @@ When a sale ends ownership of the domain's deed is passed to the buyer and funds
 
 When a fixed-price sale completes an event is sent, allowing websites and apps to remove sold domains from their list of domains for sale.
 
-## Auction rules
+### Auction rules
 
 An auction accepts multipe `bid()` according to the following rules:
 
@@ -40,7 +44,7 @@ Extending the sale by 24 hours after each bid avoids the issue of domain sniping
 
 When an auction completes an event is sent, allowing websites and apps to remove sold domains from their list of domains for sale.
 
-## Cancelling a sale
+### Cancelling a sale
 
 A sale without bids can be cancelled by sending `cancel()`.  Once a sale has bids it may not be cancelled.
 
@@ -48,7 +52,7 @@ When a sale is cancelled ownership of the domain's deed returns to the original 
 
 When a sale is cancelled an event is sent, allowing websites and apps to remove cancelled domains from their list of domains for sale.
 
-# Referrers
+## Referrers
 
 10% of the final sale price of the auction is split between two referrers.  These are as follows:
 
@@ -57,6 +61,6 @@ When a sale is cancelled an event is sent, allowing websites and apps to remove 
 
 Referrers fees are important to allow for adoption of the DomainSale system by wallet providers, third party sites, etc. so that they can fund the operation of the websites, applications and tools that power the DomainSale system.
 
-# Open questions
+## Open questions
 
   - should a sale with both fixed-price and auction components allow a fixed-price purchase even if the auction is active?  What's the reason why not?
