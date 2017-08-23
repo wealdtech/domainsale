@@ -68,3 +68,4 @@ Referrers fees are important to allow for adoption of the DomainSale system by w
   - should a sale with both fixed-price and auction components allow a fixed-price purchase even if the auction is active?  What's the reason why not?
   - should there be any restrictions on who can call `finish()`?
   - should the constant accessors throw if they aren't applicable (e.g. `minimumBid()` if the sale isn't an auction)
+  - what happens if someone attempts to sell a domain that is invalidated during the sale process?
