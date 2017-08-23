@@ -48,19 +48,19 @@ contract('DomainSale', (accounts) => {
         const entry = await registrar.entries(testdomain1LabelHash);
         assert.equal(await Deed.at(entry[1]).owner(), domainSale.address);
         
-        // Ensure that the bidding for the auction is closed
-        assert.equal(await domainSale.biddingStarted('testdomain1'), 0);
+        // Ensure that the auction has not started
+        assert.equal(await domainSale.auctionStarted('testdomain1'), false);
 
         // Set reserve and price for the domain
-        await domainSale.startSale('testdomain1', web3.toWei(0.1, 'ether'), web3.toWei(1, 'ether'), referrer1, {from: testdomainOwner});
+        await domainSale.sell('testdomain1', web3.toWei(1, 'ether'), web3.toWei(0.1, 'ether'), referrer1, {from: testdomainOwner});
 
-        // Ensure that the bidding for the auction remains closed
-        assert.equal(await domainSale.biddingStarted('testdomain1'), 0);
+        // Ensure that the auction has not been triggered
+        assert.equal(await domainSale.auctionStarted('testdomain1'), false);
     });
 
     it('should obtain an immediate sale', async () => {
-        // Ensure that the bidding for the auction is closed
-        assert.equal(await domainSale.biddingStarted('testdomain1'), 0);
+        // Ensure that the auction has not started
+        assert.equal(await domainSale.auctionStarted('testdomain1'), false);
 
         const priorSellerFunds = await web3.eth.getBalance(testdomainOwner);
         const priorContractFunds = await web3.eth.getBalance(domainSale.address);
@@ -72,8 +72,8 @@ contract('DomainSale', (accounts) => {
         const currentReferrer1Funds = await web3.eth.getBalance(referrer1);
         const currentReferrer2Funds = await web3.eth.getBalance(referrer2);
 
-        // Ensure that the bidding for the auction remains closed
-        assert.equal(await domainSale.biddingStarted('testdomain1'), 0);
+        // Ensure that the auction has not started
+        assert.equal(await domainSale.auctionStarted('testdomain1'), false);
 
         // Ensure that the deed is now owned by the winner
         const entry = await registrar.entries(sha3('testdomain1'));
