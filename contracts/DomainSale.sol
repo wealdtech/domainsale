@@ -21,7 +21,7 @@ contract DomainSale {
     struct Sale {
         // The lowest auction bid that will be accepted
         uint256 reserve;
-        // The lowest outright purchase price that will be accepted
+        // The lowest direct purchase price that will be accepted
         uint256 price;
         // The last bid on the auction.  0 if no bid has been made
         uint256 lastBid;
@@ -70,6 +70,18 @@ contract DomainSale {
         _;
     }
 
+    // Allow if the name can be bid upon
+    modifier canBid(string _name) {
+        require(sales[_name].reserve != 0);
+        _;
+    }
+
+    // Allow if the name can be purchased
+    modifier canBuy(string _name) {
+        require(sales[_name].price != 0);
+        _;
+    }
+
     /**
      * @dev Constructor takes the address of a registrar,
      *      usually the .eth registrar
@@ -82,49 +94,84 @@ contract DomainSale {
     // Accessors for struct information
     //
 
+    /**
+     * @dev a flag set if this name can be purchased through auction
+     */
+    function isAuction(string _name) public constant returns (bool) {
+        return sales[_name].reserve != 0;
+    }
+
+    /**
+     * @dev a flag set if this name can be purchase directly
+     */
+    function isDirect(string _name) public constant returns (bool) {
+        return sales[_name].price != 0;
+    }
+
+    /**
+     * @dev a flag set if the auction has started
+     */
+    // TODO should this throw if this isn't an auction sale?
     function auctionStarted(string _name) public constant returns (bool) {
         return sales[_name].lastBid != 0;
     }
 
+    /**
+     * @dev the time at which the auction ends
+     */
+    // TODO should this throw if this isn't an auction sale?
     function auctionEnds(string _name) public constant returns (uint256) {
         return sales[_name].auctionEnds;
     }
 
-    function balance() public constant returns (uint256) {
-        return balances[msg.sender];
-    }
-
     /**
-     * @dev minimumBid is the greater of the minimum bid or the last bid + 10%
+     * @dev minimumBid is the greater of the minimum bid or the last bid + 10%.
+     *      Throws if this sale does not accept bids
      */
-    function minimumBid(string _name) public constant returns (uint256 minBid) {
+    // TODO should this throw if this isn't an auction sale?
+    function minimumBid(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
-        // reserve == 0 means that there is no auction for this name
-        // TODO is there a better way of showing this?
-        require(s.reserve > 0);
 
         return s.lastBid == 0 ?
             s.reserve : 
             s.lastBid + s.lastBid / 10;
     }
     
+    /**
+     * @dev price is the instant purchase price.
+     *      Throws if this sale does not accept an instant purchase
+     */
+    // TODO should this throw if this isn't a direct sale?
+    function price(string _name) public constant returns (uint256) {
+        Sale storage s = sales[_name];
+
+        return s.price;
+    }
+
+    /**
+     * @dev The balance available for withdrawal
+     */
+    function balance() public constant returns (uint256) {
+        return balances[msg.sender];
+    }
+
     //
     // Operations
     //
 
     /**
      * @dev start (or restart) a sale for a domain.
+     *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
-     *      The price is the price at which a domain can be purchased outright.
      */
-    function sell(string _name, uint256 price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
-        require(price >= reserve);
-        require(price != 0 || reserve != 0);
+    function sell(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
+        require(_price >= reserve);
+        require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
         s.reserve = reserve; 
-        s.price = price; 
+        s.price = _price; 
         s.startReferrer = referrer; 
-        Prices(_name, reserve, price);
+        Prices(_name, reserve, _price);
     }
     
     /**
@@ -137,13 +184,16 @@ contract DomainSale {
     }
 
     /**
-     * @dev buy a domain outright
+     * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) public payable {
         Sale storage s = sales[_name];
-        require(s.price > 0 && msg.value >= s.price);
+        require(msg.value >= s.price);
         require(s.lastBid == 0); // Cannot buy if bidding is in progress (TODO: relax this?)
 
+        // As we're here, return any funds that the sender is owed
+        withdraw();
+        
         // Obtain the previous owner from the deed
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
@@ -161,16 +211,16 @@ contract DomainSale {
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) payable {
+    function bid(string _name, address bidReferrer) canBid(_name) public payable {
         require(msg.value > minimumBid(_name));
 
         Sale storage s = sales[_name];
         require(now < s.auctionEnds);
         
-        // Try to return previous bid to its owner
-        tryWithdraw();
+        // As we're here, return any funds that the sender is owed
+        withdraw();
         
-        // TODO what does this do?  Why is it here?
+        // Update the balance for the outbid bidder
         balances[s.lastBidder] += s.lastBid;
 
         s.lastBidder = msg.sender;
@@ -180,7 +230,10 @@ contract DomainSale {
         Bid(_name, msg.value);
     }
     
-    function finalizeAuction(string _name) public {
+    /**
+     * @dev finish an auction
+     */
+    function finish(string _name) public {
         Sale storage s = sales[_name];
         require(now > s.auctionEnds);
 
@@ -197,12 +250,17 @@ contract DomainSale {
         clearStorage(_name);
     }
     
-    // TODO is this internal?  Public?
-    function tryWithdraw() {
+    /**
+     * @dev withdraw any owned balance
+     */
+    function withdraw() public {
         uint256 withdrawalAmount = balances[msg.sender];
         balances[msg.sender] = 0;
-        // If it cannot withdraw, then revert the change
-        if (!msg.sender.send(withdrawalAmount)) balances[msg.sender] = withdrawalAmount;
+        // Attempt a withdrawal
+        if (withdrawalAmount > 0 && !msg.sender.send(withdrawalAmount)) {
+            // Withdrawal failed; revert the balance
+            balances[msg.sender] = withdrawalAmount;
+        }
     }
 
     //
@@ -210,7 +268,7 @@ contract DomainSale {
     //
 
     /**
-     * @dev transfer funds for a sale to the relevant parties
+     * @dev Transfer funds for a sale to the relevant parties
      */
     function transferFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
         // TODO check for either referrer being 0 and redistribute accordingly
@@ -221,7 +279,7 @@ contract DomainSale {
     }
     
     /**
-     * @dev clear the storage for a name
+     * @dev Clear the storage for a name
      */
     function clearStorage(string _name) internal {
         // Clear name records
@@ -235,5 +293,4 @@ contract DomainSale {
             bidReferrer: 0
         });
     }
-    
 }

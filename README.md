@@ -42,6 +42,8 @@ An auction accepts multipe `bid()` according to the following rules:
 
 Extending the sale by 24 hours after each bid avoids the issue of domain sniping.  Ensuring that subsequent bids are at least 10% higher than the previous bid avoids the issue where someone could maliciously extend a domain sale indefinitely by sneding very small incremental bids.
 
+When an auction is more than 24 hours past its last bid `finish()` finishes the auction.  Ownership of the domain's deed is passed to the highest bidder and funds are passed to the seller.
+
 When an auction completes an event is sent, allowing websites and apps to remove sold domains from their list of domains for sale.
 
 ### Cancelling a sale
@@ -64,3 +66,5 @@ Referrers fees are important to allow for adoption of the DomainSale system by w
 ## Open questions
 
   - should a sale with both fixed-price and auction components allow a fixed-price purchase even if the auction is active?  What's the reason why not?
+  - should there be any restrictions on who can call `finish()`?
+  - should the constant accessors throw if they aren't applicable (e.g. `minimumBid()` if the sale isn't an auction)
