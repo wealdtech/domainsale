@@ -2,7 +2,7 @@
 
 Sell ENS domains through a smart contract.
 
-https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wealdtech/domainsale?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wealdtech/domainsale?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 ## Putting domains up for sale
 
