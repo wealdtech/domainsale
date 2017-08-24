@@ -12,7 +12,7 @@ The seller must decide if they want the sale to be a fixed-price sale, an auctio
 
   - if auction then the auction clock will start when the first `bid()` is received
 
-The seller starts the sale by transmitting a `sell()` transaction.  The arguments for this transaction are:
+The seller starts the sale by transmitting an `offer()` transaction.  The arguments for this transaction are:
 
   - the name of the domain, minus the `.eth` ending (so for example if you wanted to sell `mydomain.eth` this argument would be `mydomain`)
   - the reserve price of the auction (if you do not want an auction then set this to `0`)
@@ -38,11 +38,12 @@ An auction accepts multipe `bid()` according to the following rules:
 
   - if there are no bids for the domain then the bid must be at least equal to the reserve price
   - if there are bids for the domain then the bid must be at least 10% higher than the last bid
+  - if bidding has gone on for more than 7 days then the bid must be at least 50% higher than the last bid
   - every time a `bid()` is accepted the auction's end date is set to be 24 hours after the bid
 
-Extending the sale by 24 hours after each bid avoids the issue of domain sniping.  Ensuring that subsequent bids are at least 10% higher than the previous bid avoids the issue where someone could maliciously extend a domain sale indefinitely by sneding very small incremental bids.
+Extending the sale by 24 hours after each bid avoids the issue of domain sniping.  Ensuring that subsequent bids are at least 10% higher than the previous bid, and 50% higher than the previous bid if bidding has gone on for more than 7 days, avoids the issue where someone could maliciously extend a domain sale indefinitely by submitting very small incremental bids.
 
-When an auction is more than 24 hours past its last bid `finish()` finishes the auction.  Ownership of the domain's deed is passed to the highest bidder and funds are passed to the seller.
+When an auction is more than 24 hours past its last bid no more bids can be placed.  At this point `finish()` finishes the auction.  Ownership of the domain's deed is passed to the highest bidder and funds are passed to the seller.
 
 When an auction completes an event is sent, allowing websites and apps to remove sold domains from their list of domains for sale.
 
@@ -62,6 +63,20 @@ When a sale is cancelled an event is sent, allowing websites and apps to remove 
    - the buy referrer is the referrer that provides the winning bid to the auction
 
 Referrers fees are important to allow for adoption of the DomainSale system by wallet providers, third party sites, etc. so that they can fund the operation of the websites, applications and tools that power the DomainSale system.
+
+## FAQ
+
+### Why do I need to hand the deed to the contract before making it available for sale?
+
+This is a required for two reasons.  First, to prove that you do indeed own the domain.  Second, to ensure that the domain can be handed to the winning bidder when the sale finishes.
+
+### What happens to the funds held in the deed when a sale finishes?
+
+The funds are retained in the deed and transferred to the new owner.
+
+### How do I withdraw my name from sale?
+
+As long as no bids have been received for the name you can withdraw it from sale by issuing a `cancel()` transaction.  The deed will be returned to the address from which it was sent to the domain sale contract.
 
 ## Open questions
 

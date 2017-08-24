@@ -27,6 +27,8 @@ contract DomainSale {
         uint256 lastBid;
         // The address of the last bider on the auction.  0 if no bid has been made
         address lastBidder;
+        // The timestamp when this auction started
+        uint256 auctionStarted;
         // The timestamp at which this auction ends
         uint256 auctionEnds;
         // The address of the referrer who started the sale
@@ -39,8 +41,9 @@ contract DomainSale {
     // Events
     //
     
-    // Sent when prices are set for a name
-    event Prices(string name, uint256 reserve, uint256 price);
+    // Sent when a name is offered (can occur multiple times if the seller
+    // changes their prices)
+    event Offer(string name, uint256 price, uint256 reserve);
     // Sent when a bid is placed for a name
     event Bid(string name, uint256 bid);
     // Sent when a name is transferred to a new owner
@@ -53,8 +56,8 @@ contract DomainSale {
     //
 
     // Actions that can only be undertaken by the seller of the name.
-    // The owner of the name is this contract, so we use the address that
-    // gave us the name to sell
+    // The owner of the name is this contract, so we use the previous
+    // owner from the deed
     modifier onlyNameSeller(string _name) {
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
@@ -66,7 +69,7 @@ contract DomainSale {
     // Actions that can only be undertaken if the name sale has attracted
     // no bids.
     modifier auctionNotStarted(string _name) {
-        require(sales[_name].lastBid == 0);
+        require(sales[_name].auctionStarted == 0);
         _;
     }
 
@@ -126,15 +129,21 @@ contract DomainSale {
 
     /**
      * @dev minimumBid is the greater of the minimum bid or the last bid + 10%.
+     *      If an auction has been going longer than 7 days then it is the last
+     *      bid + 50%.
      *      Throws if this sale does not accept bids
      */
     // TODO should this throw if this isn't an auction sale?
     function minimumBid(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
 
-        return s.lastBid == 0 ?
-            s.reserve : 
-            s.lastBid + s.lastBid / 10;
+        if (s.auctionStarted == 0) {
+            return s.reserve;
+        } else if (s.auctionStarted + 7 days > now) {
+            return s.lastBid + s.lastBid / 10;
+        } else {
+            return s.lastBid + s.lastBid / 2;
+        }
     }
     
     /**
@@ -160,18 +169,18 @@ contract DomainSale {
     //
 
     /**
-     * @dev start (or restart) a sale for a domain.
+     * @dev offer a domain for sale.
      *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
      */
-    function sell(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
+    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
         require(_price >= reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
         s.reserve = reserve; 
         s.price = _price; 
         s.startReferrer = referrer; 
-        Prices(_name, reserve, _price);
+        Offer(_name, _price, reserve);
     }
     
     /**
@@ -181,6 +190,9 @@ contract DomainSale {
     function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) {
         registrar.transfer(sha3(_name), msg.sender);
         Cancel(_name);
+
+        // Tidy up
+        clearStorage(_name);
     }
 
     /**
@@ -205,6 +217,8 @@ contract DomainSale {
 
         // Distribute funds to referrers
         transferFunds(msg.value, previousOwner, s.startReferrer, bidReferrer);
+
+        // Tidy up
         clearStorage(_name);
     }
 
@@ -212,10 +226,10 @@ contract DomainSale {
      * @dev bid for a domain
      */
     function bid(string _name, address bidReferrer) canBid(_name) public payable {
-        require(msg.value > minimumBid(_name));
+        require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
-        require(now < s.auctionEnds);
+        require(s.auctionStarted == 0 || now < s.auctionEnds);
         
         // As we're here, return any funds that the sender is owed
         withdraw();
@@ -223,6 +237,10 @@ contract DomainSale {
         // Update the balance for the outbid bidder
         balances[s.lastBidder] += s.lastBid;
 
+        if (s.auctionStarted == 0) {
+          // First bid; set the auction start
+          s.auctionStarted = now;
+        }
         s.lastBidder = msg.sender;
         s.lastBid = msg.value;
         s.auctionEnds = now + 24 hours;
@@ -288,6 +306,7 @@ contract DomainSale {
             price: 0, 
             lastBid:0, 
             lastBidder:0,
+            auctionStarted:0,
             auctionEnds:0,
             startReferrer: 0,
             bidReferrer: 0
