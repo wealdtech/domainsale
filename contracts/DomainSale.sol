@@ -19,10 +19,10 @@ contract DomainSale {
     mapping (address => uint256) private balances;
     
     struct Sale {
-        // The lowest auction bid that will be accepted
-        uint256 reserve;
         // The lowest direct purchase price that will be accepted
         uint256 price;
+        // The lowest auction bid that will be accepted
+        uint256 reserve;
         // The last bid on the auction.  0 if no bid has been made
         uint256 lastBid;
         // The address of the last bider on the auction.  0 if no bid has been made
@@ -94,8 +94,16 @@ contract DomainSale {
     }
     
     //
-    // Accessors for struct information
+    // Accessors for sales struct
     //
+
+    /**
+     * @dev return useful information from the sale structure in one go
+     */
+    function sale(string _name) public constant returns (uint256, uint256, uint256, address, uint256, uint256) {
+        Sale storage s = sales[_name];
+        return (s.price, s.reserve, s.lastBid, s.lastBidder, s.auctionStarted, s.auctionEnds);
+    }
 
     /**
      * @dev a flag set if this name can be purchased through auction
@@ -105,16 +113,15 @@ contract DomainSale {
     }
 
     /**
-     * @dev a flag set if this name can be purchase directly
+     * @dev a flag set if this name can be purchased outright
      */
-    function isDirect(string _name) public constant returns (bool) {
+    function isBuyable(string _name) public constant returns (bool) {
         return sales[_name].price != 0;
     }
 
     /**
      * @dev a flag set if the auction has started
      */
-    // TODO should this throw if this isn't an auction sale?
     function auctionStarted(string _name) public constant returns (bool) {
         return sales[_name].lastBid != 0;
     }
@@ -122,7 +129,6 @@ contract DomainSale {
     /**
      * @dev the time at which the auction ends
      */
-    // TODO should this throw if this isn't an auction sale?
     function auctionEnds(string _name) public constant returns (uint256) {
         return sales[_name].auctionEnds;
     }
@@ -133,7 +139,6 @@ contract DomainSale {
      *      bid + 50%.
      *      Throws if this sale does not accept bids
      */
-    // TODO should this throw if this isn't an auction sale?
     function minimumBid(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
 
@@ -150,7 +155,6 @@ contract DomainSale {
      * @dev price is the instant purchase price.
      *      Throws if this sale does not accept an instant purchase
      */
-    // TODO should this throw if this isn't a direct sale?
     function price(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
 
@@ -174,7 +178,7 @@ contract DomainSale {
      *      The reserve is the initial lowest price for which a bid can be made.
      */
     function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
-        require(_price >= reserve);
+        require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
         s.reserve = reserve; 
@@ -201,7 +205,7 @@ contract DomainSale {
     function buy(string _name, address bidReferrer) canBuy(_name) public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
-        require(s.lastBid == 0); // Cannot buy if bidding is in progress (TODO: relax this?)
+        require(s.auctionStarted == 0); // Cannot buy if bidding is in progress (TODO: relax this?)
 
         // As we're here, return any funds that the sender is owed
         withdraw();
@@ -289,8 +293,6 @@ contract DomainSale {
      * @dev Transfer funds for a sale to the relevant parties
      */
     function transferFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
-        // TODO check for either referrer being 0 and redistribute accordingly
-        // TODO or should we refuse 0-address referrers?  Would be simpler...
         seller.transfer(amount * 90 / 100);
         startReferrer.transfer(amount * 5 / 100);
         bidReferrer.transfer(amount * 5 / 100);
