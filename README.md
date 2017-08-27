@@ -53,9 +53,9 @@ If the domain has a minimum bid then this is the lowest value you can attempt to
 
 If you are outbid on a domain your funds are marked for return.  Funds marked for return to you are returned when any of the following actions occur:
 
-    - you bid on any domain for sale by DomainSale
-    - you buy any domain for sale by DomainSale
-    - you ask to withdraw any returnable funds
+  - you bid on any domain for sale by DomainSale
+  - you buy any domain for sale by DomainSale
+  - you ask to withdraw any returnable funds
 
 ### Rules of a DomainSale purchase
 
@@ -77,7 +77,7 @@ All bids made on domains are visible, although there is no way to relate the add
 
 The following websites and applications provide the ability to buy and sell domains through DomainSale:
 
-    - Weald Technology provide command-line tools for both buyers and sellers of domains.  These can be found at ?
+  - Weald Technology provide command-line tools for both buyers and sellers of domains.  These can be found at ?
 
 ## The DomainSale Smart Contract
 
@@ -95,10 +95,10 @@ For more details about the ENS registrar please see the [ENS documentation](http
 
 To offer a domain for sale by the DomainSale contract a call to DomainSale's `offer` function is required.  The offer function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
-    - `price` the fixed price at which the domain can be purchased immediately (if you do not want a fixed price sale then set this to `0`)
-    - `reserve` the lowest acceptable bid at which the domain will enter auction (if you do not want an auction sale then set this to `0`)
-    - `referrer` the referrer for this sale.  This address will receive 5% of the final sale price of the domain regardless of the method with which it is sold
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
+  - `price` the fixed price at which the domain can be purchased immediately (if you do not want a fixed price sale then set this to `0`)
+  - `reserve` the lowest acceptable bid at which the domain will enter auction (if you do not want an auction sale then set this to `0`)
+  - `referrer` the referrer for this sale.  This address will receive 5% of the final sale price of the domain regardless of the method with which it is sold
 
 This function must be called from the account that put the name up for sale.
 
@@ -108,7 +108,7 @@ Multiple `offer` function calls can be made to change the price if required, but
 
 To cancel a domain sale by the DomainSale contract a call to DomainSale's `cancel` function is required.  The cancel function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
 
 This function must be called from the account that put the name up for sale.
 
@@ -118,8 +118,8 @@ Note that cancelling a domain sale is not possible once a domain has received a 
 
 To buy a domain offered for sale with a fixed price a call to DomainSale's `buy` function is required.  The buy function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were buying `mydomain.eth` this argument would be `mydomain`)
-    - `referrer` the referrer for this purchase.  This address will receive 5% of the purchase price of the domain
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were buying `mydomain.eth` this argument would be `mydomain`)
+  - `referrer` the referrer for this purchase.  This address will receive 5% of the purchase price of the domain
 
 The buy function transfers the domain to the buyer and the funds to the seller.
 
@@ -127,14 +127,14 @@ The buy function transfers the domain to the buyer and the funds to the seller.
 
 To bid for a domain offered for sale by auction a call to DomainSale's `bid` function is required.  The bid function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were bidding on `mydomain.eth` this argument would be `mydomain`)
-    - `referrer` the referrer for this bid.  This address will receive 5% of the purchase price of the domain if this is the winning bid
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were bidding on `mydomain.eth` this argument would be `mydomain`)
+  - `referrer` the referrer for this bid.  This address will receive 5% of the purchase price of the domain if this is the winning bid
 
 ### Finishing a domain auction
 
 To finish an auction for a domain offered for sale a call to DomainSale's `finish` function is required.  The finish function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were offering `mydomain.eth` this argument would be `mydomain`)
 
 The finish function transfers the domain to the winning bidder and the funds to the seller.
 
@@ -148,37 +148,37 @@ There are a number of functions that provide information about a domain sale.
 
 To find out if a domain can be bought using fixed price purchase a call to DomainSale's `isBuyable` function is required.  The isBuyable function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return `true` if the domain can be bought using fixed price purchase; otherwise false.
 
 To find out the purchase price for a domain a call to DomainSale's `price` function is required.  The price function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return a value for the minimum acceptable bid.  If `0` it means that there is no fixed price purhcase available for this domain.
 
 To find out if a domain can be bought at auction a call to DomainSale's `isAuction` function is required.  The isAuction function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return `true` if the domain can be bought at auction; otherwise false.
 
 To find out when a domain's auction started a call to DomainSale's `auctionStarted` function is required.  The auctionStarted function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return a timestamp for when the auction started.  If `0then it means that this auction has not yet started, or that there is no auction available for this domain (use `isAuction` above to find out which).
 
 To find out when a domain's auction ends a call to DomainSale's `auctionEnds` function is required.  The auctionEnds function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return a timestamp for when the auction ends.  If `0` it means that this auction has not yet started, or that there is no auction available for this domain (use `isAuction` above to find out which).
 
 To find out the minimum bid for a domain's auction ends a call to DomainSale's `minimumBid` function is required.  The minimumBid function takes the following arguments:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if you were checking `mydomain.eth` this argument would be `mydomain`)
 
 This will return a value for the minimum acceptable bid.  If `0` it means that there is no auction available for this domain.
 
@@ -194,31 +194,31 @@ The DomainSale smart contract emits a number of events to allow listenres to pro
 
 This event is emitted when an `offer` transaction is received.  The event emits the following parameters:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if the offer is on `mydomain.eth` this argument would be `mydomain`)
-    - `price` the fixed price at which the domain can be purchased immediately (if this is `0` it means that this domain cannot be purchased immediately)
-    - `reserve` the lowest acceptable bid at which the domain will enter auction (if this is `0` it means that this domain cannot be purchased at auction)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if the offer is on `mydomain.eth` this argument would be `mydomain`)
+  - `price` the fixed price at which the domain can be purchased immediately (if this is `0` it means that this domain cannot be purchased immediately)
+  - `reserve` the lowest acceptable bid at which the domain will enter auction (if this is `0` it means that this domain cannot be purchased at auction)
 
 ### Bid
 
 This event is emitted when a `bid` transaction is received.  The event emits the following parameters:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if the bid is on `mydomain.eth` this argument would be `mydomain`)
-    - `bid` the bid that was mde
+  - `name` the name of the domain, minus the `.eth` ending (so for example if the bid is on `mydomain.eth` this argument would be `mydomain`)
+  - `bid` the bid that was mde
 
 ### Cancel
 
 This event is emitted when a `cancel` transaction is received.  The event emits the following parameters:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if the cancellation is on `mydomain.eth` this argument would be `mydomain`)
+  - `name` the name of the domain, minus the `.eth` ending (so for example if the cancellation is on `mydomain.eth` this argument would be `mydomain`)
 
 ### Transfer
 
 This event is emitted when a domain is transferred, after either a `buy` or a `finish` transaction is received.  The event emits the following parameters:
 
-    - `name` the name of the domain, minus the `.eth` ending (so for example if the domain transferred is `mydomain.eth` this argument would be `mydomain`)
-    - `from` the address of the domain seller
-    - `to` the address to of the domain buyer
-    - `value` the amount that the buyer paid to buy the domain
+  - `name` the name of the domain, minus the `.eth` ending (so for example if the domain transferred is `mydomain.eth` this argument would be `mydomain`)
+  - `from` the address of the domain seller
+  - `to` the address to of the domain buyer
+  - `value` the amount that the buyer paid to buy the domain
 
 ## FAQ
 
