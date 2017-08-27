@@ -205,7 +205,7 @@ contract DomainSale {
     function buy(string _name, address bidReferrer) canBuy(_name) public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
-        require(s.auctionStarted == 0); // Cannot buy if bidding is in progress (TODO: relax this?)
+        require(s.auctionStarted == 0);
 
         // As we're here, return any funds that the sender is owed
         withdraw();
