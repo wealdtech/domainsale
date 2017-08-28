@@ -43,11 +43,11 @@ contract DomainSale {
     
     // Sent when a name is offered (can occur multiple times if the seller
     // changes their prices)
-    event Offer(string name, uint256 price, uint256 reserve);
+    event Offer(address indexed seller, string name, uint256 price, uint256 reserve);
     // Sent when a bid is placed for a name
-    event Bid(string name, uint256 bid);
+    event Bid(address indexed bidder, string name, uint256 bid);
     // Sent when a name is transferred to a new owner
-    event Transfer(string name, address from, address to, uint256 value);
+    event Transfer(address indexed seller, address indexed buyer, string name, uint256 value);
     // Sent when a sale for a name is cancelled
     event Cancel(string name);
 
@@ -184,7 +184,7 @@ contract DomainSale {
         s.reserve = reserve; 
         s.price = _price; 
         s.startReferrer = referrer; 
-        Offer(_name, _price, reserve);
+        Offer(msg.sender, _name, _price, reserve);
     }
     
     /**
@@ -217,7 +217,7 @@ contract DomainSale {
         
         // Transfer the name
         registrar.transfer(sha3(_name), msg.sender);
-        Transfer(_name, previousOwner, msg.sender, msg.value);
+        Transfer(previousOwner, msg.sender, _name, msg.value);
 
         // Distribute funds to referrers
         transferFunds(msg.value, previousOwner, s.startReferrer, bidReferrer);
@@ -249,7 +249,7 @@ contract DomainSale {
         s.lastBid = msg.value;
         s.auctionEnds = now + 24 hours;
         s.bidReferrer = bidReferrer;
-        Bid(_name, msg.value);
+        Bid(msg.sender, _name, msg.value);
     }
     
     /**
@@ -265,7 +265,7 @@ contract DomainSale {
         address previousOwner = deed.previousOwner();
         
         registrar.transfer(sha3(_name), s.lastBidder);
-        Transfer(_name, previousOwner, s.lastBidder, s.lastBid);
+        Transfer(previousOwner, s.lastBidder, _name, s.lastBid);
 
         // Distribute funds to referrers
         transferFunds(s.lastBid, previousOwner, s.startReferrer, s.bidReferrer);
