@@ -6,3 +6,6 @@ build
 
 # Node
 node_modules
+
+# Deployment scripts
+deploy*.sh

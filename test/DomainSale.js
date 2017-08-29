@@ -18,6 +18,12 @@ const testdomain2LabelHash = sha3('testdomain2');
 const testdomain2ethNameHash = sha3(ethNameHash, testdomain2LabelHash);
 const testdomain3LabelHash = sha3('testdomain3');
 const testdomain3ethNameHash = sha3(ethNameHash, testdomain3LabelHash);
+const testdomain4LabelHash = sha3('testdomain4');
+const testdomain4ethNameHash = sha3(ethNameHash, testdomain4LabelHash);
+const testdomain5LabelHash = sha3('testdomain5');
+const testdomain5ethNameHash = sha3(ethNameHash, testdomain5LabelHash);
+const testdomain6LabelHash = sha3('testdomain6');
+const testdomain6ethNameHash = sha3(ethNameHash, testdomain6LabelHash);
 
 
 contract('DomainSale', (accounts) => {
@@ -44,10 +50,13 @@ contract('DomainSale', (accounts) => {
         await registrar.register(testdomain1LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
         await registrar.register(testdomain2LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
         await registrar.register(testdomain3LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.register(testdomain4LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.register(testdomain5LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.register(testdomain6LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
     });
 
     it('should offer a domain for sale', async () => {
-        domainSale = await DomainSale.new(registrar.address, {from: domainSaleOwner});
+        domainSale = await DomainSale.new(registry.address, {from: domainSaleOwner});
 
         // Transfer deed ownership to the domain sale contract
         await registrar.transfer(testdomain1LabelHash, domainSale.address, {from: testdomainOwner});
@@ -196,4 +205,103 @@ contract('DomainSale', (accounts) => {
         }
     });
 
+    it('should not allow changes to the offer after the auction ends', async () => {
+        // Attempt to alter the offer
+        try {
+        await domainSale.offer('testdomain2', web3.toWei(2, 'ether'), web3.toWei(0.2, 'ether'), referrer1, {from: testdomainOwner});
+           assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    it('should not allow changes to the offer after the auction ends', async () => {
+        // Attempt to alter the offer
+        try {
+        await domainSale.offer('testdomain2', web3.toWei(2, 'ether'), web3.toWei(0.2, 'ether'), referrer1, {from: testdomainOwner});
+           assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    it('should not allow cancelling the auction after the auction ends', async () => {
+        // Attempt to cancel the auction
+        try {
+        await domainSale.cancel('testdomain2', {from: testdomainOwner});
+           assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    //
+    // Check value transfers
+    //
+
+
+    it('should return ether when a bidder repeat bids on a name', async () => {
+        await registrar.transfer(testdomain4LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('testdomain4', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+
+        // Initial cost should 0.01 ether (the bid) and gas
+        const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+        tx = await domainSale.bid('testdomain4', referrer1, {from: bidder1, value: web3.toWei(0.01, 'ether')});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds1.minus(gasUsed).minus(web3.toWei(0.01, 'ether'));
+        const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+
+        // Next bid is for 0.02 ether; cost should be 0.01 ether (difference between the two bids) and gas
+        tx = await domainSale.bid('testdomain4', referrer1, {from: bidder1, value: web3.toWei(0.02, 'ether')});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds2.minus(gasUsed).minus(web3.toWei(0.01, 'ether'));
+        const bidder1Funds3 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds3.toString());
+
+        // Next bid is for 0.1 ether; cost should be 0.08 ether (difference between the two bids) and gas
+        tx = await domainSale.bid('testdomain4', referrer1, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds3.minus(gasUsed).minus(web3.toWei(0.08, 'ether'));
+        const bidder1Funds4 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds4.toString());
+    });
+
+    it('should return ether when a bidder bids on an unrelated name', async () => {
+        await registrar.transfer(testdomain5LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('testdomain5', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await registrar.transfer(testdomain6LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('testdomain6', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+
+        // Bidder 1 is outbid by bidder 2 and so gains a balance
+        await domainSale.bid('testdomain5', referrer1, {from: bidder1, value: web3.toWei(0.01, 'ether')});
+        await domainSale.bid('testdomain5', referrer1, {from: bidder2, value: web3.toWei(0.02, 'ether')});
+        bidder1Balance = await domainSale.balance({from: bidder1});
+        assert.equal(bidder1Balance.toString(), web3.toWei(0.01, 'ether').toString());
+
+        // Bidder 1 bids on a different name and should obtain their balance back
+        const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+        tx = await domainSale.bid('testdomain6', referrer1, {from: bidder1, value: web3.toWei(0.01, 'ether')});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds1.minus(gasUsed);
+        const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+        assert.equal(bidder1Balance.toString(), web3.toWei(0.01, 'ether').toString());
+    });
+
+    it('should return balance when asked', async () => {
+        // Bidder 1 is outbid by bidder 2 and so gains a balance
+        await domainSale.bid('testdomain5', referrer1, {from: bidder1, value: web3.toWei(0.03, 'ether')});
+        await domainSale.bid('testdomain5', referrer1, {from: bidder2, value: web3.toWei(0.04, 'ether')});
+        bidder1Balance = await domainSale.balance({from: bidder1});
+        assert.equal(bidder1Balance.toString(), web3.toWei(0.03, 'ether').toString());
+
+        // Bidder 1 withdraws the balance
+        const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+        tx = await domainSale.withdraw({from: bidder1});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.03, 'ether'));
+        const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+    });
 });

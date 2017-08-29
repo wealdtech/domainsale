@@ -1,10 +1,16 @@
 pragma solidity ^0.4.2;
 
+import "../../trust-library/contracts/ens/ENSReverseRegister.sol";
 
 // Interesting parts of the ENS deed
 contract Deed {
     address public owner;
     address public previousOwner;
+}
+
+// Interesting parts of the ENS registry
+contract Registry {
+    function owner(bytes32 _hash) constant returns (address);
 }
 
 // Interesting parts of the ENS registrar
@@ -13,7 +19,7 @@ contract Registrar {
     function entries(bytes32 _hash) constant returns (uint, Deed, uint, uint, uint);
 }
 
-contract DomainSale {
+contract DomainSale is ENSReverseRegister {
     Registrar public registrar;
     mapping (string => Sale) private sales;
     mapping (address => uint256) private balances;
@@ -86,11 +92,11 @@ contract DomainSale {
     }
 
     /**
-     * @dev Constructor takes the address of a registrar,
-     *      usually the .eth registrar
+     * @dev Constructor takes the address of the ENS registry
      */
-    function DomainSale(address _registrar) {
-        registrar = Registrar(_registrar);
+    function DomainSale(address _registry) ENSReverseRegister(_registry, "domainsale.eth") {
+        // Hex is namehash("eth")
+        registrar = Registrar(Registry(_registry).owner(0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae));
     }
     
     //
@@ -209,7 +215,7 @@ contract DomainSale {
 
         // As we're here, return any funds that the sender is owed
         withdraw();
-        
+
         // Obtain the previous owner from the deed
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
@@ -235,11 +241,11 @@ contract DomainSale {
         Sale storage s = sales[_name];
         require(s.auctionStarted == 0 || now < s.auctionEnds);
         
-        // As we're here, return any funds that the sender is owed
-        withdraw();
-        
         // Update the balance for the outbid bidder
         balances[s.lastBidder] += s.lastBid;
+
+        // As we're here, return any funds that the sender is owed
+        withdraw();
 
         if (s.auctionStarted == 0) {
           // First bid; set the auction start
