@@ -245,6 +245,6 @@ Once an auction has started the only way for you to retain a name is to become t
 
 Support for the DomainSale contract can be found in the [DomainSale Gittter room](https://gitter.im/wealdtech/domainsale).
 
-## Open questions
+### What happens if an invalid domain is auctioned?
 
-  - what happens if someone attempts to sell a domain that is invalidated during the sale process?
+DomainSale itself is unaware that a domain might be invalid. However, if at any time during an auction the domain is invalidated in ENS the auction process will not allow the auction to finish. The bidder can send an `invalidate()` message to DomainSale and retrieve the funds they have bid.
