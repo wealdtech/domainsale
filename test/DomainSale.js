@@ -205,6 +205,30 @@ contract('DomainSale', (accounts) => {
         }
     });
 
+    it('should finish auctions correctly', async () => {
+        const priorSellerFunds = await web3.eth.getBalance(testdomainOwner);
+        const priorContractFunds = await web3.eth.getBalance(domainSale.address);
+        const priorReferrer1Funds = await web3.eth.getBalance(referrer1);
+        const priorReferrer2Funds = await web3.eth.getBalance(referrer2);
+        await domainSale.finish('testdomain2', {from: bidder2});
+        const currentSellerFunds = await web3.eth.getBalance(testdomainOwner);
+        const currentContractFunds = await web3.eth.getBalance(domainSale.address);
+        const currentReferrer1Funds = await web3.eth.getBalance(referrer1);
+        const currentReferrer2Funds = await web3.eth.getBalance(referrer2);
+
+        // Ensure that the deed is now owned by the winner
+        const entry = await registrar.entries(sha3('testdomain2'));
+        assert.equal(await Deed.at(entry[1]).owner(), bidder1);
+        assert.equal(await Deed.at(entry[1]).previousOwner(), domainSale.address);
+
+        // Ensure that the seller has 90% of the sale price
+        assert.equal(currentSellerFunds - priorSellerFunds, web3.toWei(8, 'ether') * 0.9);
+        // Ensure that the first referrer has 5% of the sale price
+        assert.equal(currentReferrer1Funds - priorReferrer1Funds, web3.toWei(8, 'ether') * 0.05);
+        // Ensure that the second referrer has 5% of the sale price
+        assert.equal(currentReferrer2Funds - priorReferrer2Funds, web3.toWei(8, 'ether') * 0.05);
+    });
+
     it('should not allow changes to the offer after the auction ends', async () => {
         // Attempt to alter the offer
         try {
@@ -228,8 +252,8 @@ contract('DomainSale', (accounts) => {
     it('should not allow cancelling the auction after the auction ends', async () => {
         // Attempt to cancel the auction
         try {
-        await domainSale.cancel('testdomain2', {from: testdomainOwner});
-           assert.fail();
+            await domainSale.cancel('testdomain2', {from: testdomainOwner});
+            assert.fail();
         } catch (error) {
             assertJump(error);
         }
@@ -303,5 +327,117 @@ contract('DomainSale', (accounts) => {
         expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.03, 'ether'));
         const bidder1Funds2 = await web3.eth.getBalance(bidder1);
         assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+    });
+
+    it('should allow invalidation before an auction', async () => {
+        const inv1LabelHash = sha3('inv1');
+        const inv1ethNameHash = sha3(ethNameHash, inv1LabelHash);
+        await registrar.register(inv1LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.transfer(inv1LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('inv1', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await registrar.invalidate(inv1LabelHash);
+        try {
+            await domainSale.bid('inv1', referrer2, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    it('should allow invalidation during an auction (1)', async () => {
+        const inv2LabelHash = sha3('inv2');
+        const inv2ethNameHash = sha3(ethNameHash, inv2LabelHash);
+        await registrar.register(inv2LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.transfer(inv2LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('inv2', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+        await registrar.invalidate(inv2LabelHash);
+        try {
+            await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.2, 'ether')});
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+            // Invalidate by the bidder and ensure the bid balance is returned
+            const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+            tx = await domainSale.invalidate('inv2', {from: bidder1});
+            gasUsed = tx.receipt.gasUsed * 100000000000;
+            expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.1, 'ether'));
+            const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+            assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+        }
+    });
+
+    it('should allow invalidation during an auction (2)', async () => {
+        const inv2LabelHash = sha3('inv2');
+        const inv2ethNameHash = sha3(ethNameHash, inv2LabelHash);
+        await registrar.register(inv2LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.transfer(inv2LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('inv2', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+        await registrar.invalidate(inv2LabelHash);
+        try {
+            await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.2, 'ether')});
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+            // Invalidate by third party
+            await domainSale.invalidate('inv2', {from: bidder2});
+            // Ensure that the bid balance is returned
+            const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+            tx = await domainSale.withdraw({from: bidder1});
+            gasUsed = tx.receipt.gasUsed * 100000000000;
+            expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.1, 'ether'));
+            const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+            assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+        }
+    });
+
+    it('should allow invalidation after an auction', async () => {
+        const inv2LabelHash = sha3('inv2');
+        const inv2ethNameHash = sha3(ethNameHash, inv2LabelHash);
+        await registrar.register(inv2LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.transfer(inv2LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('inv2', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+
+        increaseTime(86401); // No bids for more than 1 day
+        mine();
+        await registrar.invalidate(inv2LabelHash);
+
+        // Invalidate by the bidder and ensure the bid balance is returned
+        const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+        tx = await domainSale.invalidate('inv2', {from: bidder1});
+        gasUsed = tx.receipt.gasUsed * 100000000000;
+        expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.1, 'ether'));
+        const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+        assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+    });
+
+    it('should not finish an invalid auction', async () => {
+        const inv2LabelHash = sha3('inv2');
+        const inv2ethNameHash = sha3(ethNameHash, inv2LabelHash);
+        await registrar.register(inv2LabelHash, {from: testdomainOwner, value: web3.toWei(0.01, 'ether')});
+        await registrar.transfer(inv2LabelHash, domainSale.address, {from: testdomainOwner});
+        await domainSale.offer('inv2', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, {from: testdomainOwner});
+        await domainSale.bid('inv2', referrer2, {from: bidder1, value: web3.toWei(0.1, 'ether')});
+
+        increaseTime(86401); // No bids for more than 1 day
+        mine();
+        await registrar.invalidate(inv2LabelHash);
+
+        // Attempt to finish the auction
+        try {
+            await domainSale.finish('inv2', {from: bidder2});
+            assert.fail();
+        } catch (error) {
+            await domainSale.invalidate('inv2', {from: bidder2});
+            // Ensure that the bid balance is returned
+            const bidder1Funds1 = await web3.eth.getBalance(bidder1);
+            tx = await domainSale.withdraw({from: bidder1});
+            gasUsed = tx.receipt.gasUsed * 100000000000;
+            expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.1, 'ether'));
+            const bidder1Funds2 = await web3.eth.getBalance(bidder1);
+            assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+        }
     });
 });

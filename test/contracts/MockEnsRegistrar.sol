@@ -1,15 +1,17 @@
 pragma solidity ^0.4.11;
 
-// import '../../contracts/HashRegistrarSimplified.sol'; // for Deed
-// import './HashRegistrarSimplified.sol'; // for Deed
 
 contract AbstractENS {
     function setSubnodeOwner(bytes32 node, bytes32 hash, address owner);
+    function setOwner(bytes32 node, address owner);
+    function setResolver(bytes32 node, address resolver);
+    function owner(bytes32 node) returns (address);
 }
+
 
 contract Deed {
     address public registrar;
-    address constant burn = 0xdead;
+    address constant BURN = 0xdead;
     uint public creationDate;
     address public owner;
     address public previousOwner;
@@ -52,7 +54,9 @@ contract Deed {
         require(value >= newValue);
         value = newValue;
         // Send the difference to the owner
-        if (!owner.send(this.balance - newValue) && throwOnFailure) revert();
+        if (!owner.send(this.balance - newValue) && throwOnFailure) {
+            revert();
+        }
     }
 
     /**
@@ -62,7 +66,7 @@ contract Deed {
      */
     function closeDeed(uint refundRatio) onlyRegistrar onlyActive {
         active = false;
-        if (! burn.send(((1000 - refundRatio) * this.balance)/1000)) revert();
+        assert(BURN.send(((1000 - refundRatio) * this.balance)/1000));
         DeedClosed();
         destroyDeed();
     }
@@ -77,21 +81,22 @@ contract Deed {
         // owner to log an event if desired; but owner should also be aware that
         // its fallback function can also be invoked by setBalance
         if (owner.send(this.balance)) {
-            selfdestruct(burn);
+            selfdestruct(BURN);
         }
     }
 }
+
 
 // A mock ENS registrar that acts as FIFS but contains deeds
 contract MockEnsRegistrar {
     AbstractENS public ens;
     bytes32 public rootNode;
 
-    mapping (bytes32 => entry) _entries;
+    mapping (bytes32 => Entry) _entries;
 
     enum Mode { Open, Auction, Owned, Forbidden, Reveal, NotYetAvailable }
 
-    struct entry {
+    struct Entry {
         Deed deed;
         uint registrationDate;
         uint value;
@@ -131,7 +136,7 @@ contract MockEnsRegistrar {
     }
 
     function entries(bytes32 hash) constant returns (Mode, address, uint, uint, uint) {
-        entry storage h = _entries[hash];
+        Entry storage h = _entries[hash];
         return (state(hash), h.deed, h.registrationDate, h.value, h.highestBid);
     }
 
@@ -145,5 +150,24 @@ contract MockEnsRegistrar {
         _entries[hash].deed.setOwner(newOwner);
         ens.setSubnodeOwner(rootNode, hash, newOwner);
     }
-}
 
+    // This allows anyone to invalidate any entry.  It's purely for testing
+    // purposes and should never be seen in a live contract.
+    function invalidate(bytes32 hash) {
+        Entry storage h = _entries[hash];
+        _tryEraseSingleNode(hash);
+        _entries[hash].deed.closeDeed(0);
+        h.value = 0;
+        h.highestBid = 0;
+        h.deed = Deed(0);
+    }
+
+    function _tryEraseSingleNode(bytes32 label) internal {
+        if (ens.owner(rootNode) == address(this)) {
+            ens.setSubnodeOwner(rootNode, label, address(this));
+            var node = sha3(rootNode, label);
+            ens.setResolver(node, 0);
+            ens.setOwner(node, 0);
+        }
+    }
+}

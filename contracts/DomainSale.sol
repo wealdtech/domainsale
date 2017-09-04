@@ -84,6 +84,15 @@ contract DomainSale is ENSReverseRegister {
         _;
     }
     
+    // It is possible for a name to be invalidated, in which case the
+    // owner will be reset
+    modifier deedValid(string _name) {
+        address deed;
+        (,deed,,,) = registrar.entries(sha3(_name));
+        require(deed != 0);
+        _;
+    }
+
     // Actions that can only be undertaken if the name sale has attracted
     // no bids.
     modifier auctionNotStarted(string _name) {
@@ -195,7 +204,7 @@ contract DomainSale is ENSReverseRegister {
      *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
      */
-    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) public {
+    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
         require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
@@ -209,7 +218,7 @@ contract DomainSale is ENSReverseRegister {
      * @dev cancel a sale for a domain.
      *      This can only happen if there have been no bids for the name.
      */
-    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) {
+    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
         registrar.transfer(sha3(_name), msg.sender);
         Cancel(_name);
 
@@ -220,7 +229,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) canBuy(_name) public payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
         require(s.auctionStarted == 0);
@@ -247,7 +256,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) canBid(_name) public payable {
+    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) public payable {
         require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
@@ -273,15 +282,15 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev finish an auction
      */
-    function finish(string _name) public {
+    function finish(string _name) deedValid(_name) public {
         Sale storage s = sales[_name];
         require(now > s.auctionEnds);
 
         // Obtain the previous owner from the deed
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
-        address previousOwner = deed.previousOwner();
         
+        address previousOwner = deed.previousOwner();
         registrar.transfer(sha3(_name), s.lastBidder);
         Transfer(previousOwner, s.lastBidder, _name, s.lastBid);
 
@@ -301,6 +310,30 @@ contract DomainSale is ENSReverseRegister {
             // Withdrawal failed; revert the balance
             balances[msg.sender] = withdrawalAmount;
         }
+    }
+
+    /**
+     * @dev Invalidate an auction if the deed is no longer active
+     */
+    function invalidate(string _name) public {
+        // Ensure the deed has been invalidated
+        address deed;
+        (,deed,,,) = registrar.entries(sha3(_name));
+        require(deed == 0);
+
+        Sale storage s = sales[_name];
+
+        // Update the balance for the winning bidder
+        balances[s.lastBidder] += s.lastBid;
+
+        // As we're here, return any funds that the sender is owed
+        withdraw();
+
+        // Cancel the auction
+        Cancel(_name);
+
+        // Tidy up
+        clearStorage(_name);
     }
 
     //
