@@ -52,6 +52,12 @@ contract DomainSale is ENSReverseRegister {
     // Hex is namehash("eth")
     bytes32 private constant NAMEHASH_ETH = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
 
+    // Funds tracker.  Ensures we don't forget about any Ether
+    // Funds held for sales (both buys and bids)
+    uint256 private saleFunds = 0;
+    // Funds pending withdrawal
+    uint256 private withdrawalFunds = 0;
+
     struct Sale {
         // The lowest direct purchase price that will be accepted
         uint256 price;
@@ -125,6 +131,12 @@ contract DomainSale is ENSReverseRegister {
     // Allow if the name can be purchased
     modifier canBuy(string _name) {
         require(sales[_name].price != 0);
+        _;
+    }
+
+    // Payables add their value to the sales funds tracker
+    modifier addSaleFunds(uint256 value) {
+        saleFunds += value;
         _;
     }
 
@@ -227,6 +239,9 @@ contract DomainSale is ENSReverseRegister {
         s.price = _price; 
         s.startReferrer = referrer; 
         Offer(msg.sender, _name, _price, reserve);
+
+        // Funds tracker invariant
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
     
     /**
@@ -239,12 +254,15 @@ contract DomainSale is ENSReverseRegister {
 
         // Tidy up
         clearStorage(_name);
+
+        // Funds tracker invariant
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
 
     /**
      * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) public payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) addSaleFunds(msg.value) public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
         require(s.auctionStarted == 0);
@@ -266,12 +284,15 @@ contract DomainSale is ENSReverseRegister {
 
         // Tidy up
         clearStorage(_name);
+
+        // Funds tracker invariant
+        require(saleFunds + withdrawalFunds == address(this).balance);
     }
 
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) public payable {
+    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) addSaleFunds(msg.value) public payable {
         require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
@@ -279,6 +300,8 @@ contract DomainSale is ENSReverseRegister {
         
         // Update the balance for the outbid bidder
         balances[s.lastBidder] += s.lastBid;
+        saleFunds -= s.lastBid;
+        withdrawalFunds += s.lastBid;
 
         // As we're here, return any funds that the sender is owed
         withdraw();
@@ -292,6 +315,9 @@ contract DomainSale is ENSReverseRegister {
         s.auctionEnds = now + AUCTION_DURATION;
         s.bidReferrer = bidReferrer;
         Bid(msg.sender, _name, msg.value);
+
+        // Funds tracker invariant
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
     
     /**
@@ -311,17 +337,22 @@ contract DomainSale is ENSReverseRegister {
 
         // Distribute funds to referrers
         transferFunds(s.lastBid, previousOwner, s.startReferrer, s.bidReferrer);
+
         clearStorage(_name);
+
+        // Funds tracker invariant
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
     
     /**
      * @dev withdraw any owned balance
      */
     function withdraw() public {
-        uint256 withdrawalAmount = balances[msg.sender];
-        if (withdrawalAmount > 0) {
+        uint256 amount = balances[msg.sender];
+        if (amount > 0) {
             balances[msg.sender] = 0;
-            msg.sender.transfer(withdrawalAmount);
+            withdrawalFunds -= amount;
+            msg.sender.transfer(amount);
         }
     }
 
@@ -347,6 +378,9 @@ contract DomainSale is ENSReverseRegister {
 
         // Tidy up
         clearStorage(_name);
+
+        // Funds tracker invariant
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
 
     //
@@ -360,6 +394,7 @@ contract DomainSale is ENSReverseRegister {
         seller.transfer(amount * SELLER_SALE_PERCENTAGE / 100);
         startReferrer.transfer(amount * START_REFERRER_SALE_PERCENTAGE / 100);
         bidReferrer.transfer(amount * BID_REFERRER_SALE_PERCENTAGE / 100);
+        saleFunds -= amount;
     }
     
     /**
