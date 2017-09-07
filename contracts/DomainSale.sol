@@ -36,6 +36,22 @@ contract DomainSale is ENSReverseRegister {
     mapping (string => Sale) private sales;
     mapping (address => uint256) private balances;
     
+    // Auction parameters
+    uint256 private constant AUCTION_DURATION = 24 hours;
+    uint256 private constant HIGH_BID_KICKIN = 7 days;
+    uint256 private constant NORMAL_BID_INCREASE_PERCENTAGE = 10;
+    uint256 private constant HIGH_BID_INCREASE_PERCENTAGE = 50;
+
+    // Distribution of the sale funds
+    uint256 private constant SELLER_SALE_PERCENTAGE = 90;
+    uint256 private constant START_REFERRER_SALE_PERCENTAGE = 5;
+    uint256 private constant BID_REFERRER_SALE_PERCENTAGE = 5;
+
+    // ENS
+    string private constant CONTRACT_ENS = "domainsale.eth";
+    // Hex is namehash("eth")
+    bytes32 private constant NAMEHASH_ETH = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
+
     struct Sale {
         // The lowest direct purchase price that will be accepted
         uint256 price;
@@ -115,9 +131,8 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev Constructor takes the address of the ENS registry
      */
-    function DomainSale(address _registry) ENSReverseRegister(_registry, "domainsale.eth") {
-        // Hex is namehash("eth")
-        registrar = Registrar(Registry(_registry).owner(0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae));
+    function DomainSale(address _registry) ENSReverseRegister(_registry, CONTRACT_ENS) {
+        registrar = Registrar(Registry(_registry).owner(NAMEHASH_ETH));
     }
     
     //
@@ -171,10 +186,10 @@ contract DomainSale is ENSReverseRegister {
 
         if (s.auctionStarted == 0) {
             return s.reserve;
-        } else if (s.auctionStarted + 7 days > now) {
-            return s.lastBid + s.lastBid / 10;
+        } else if (s.auctionStarted + HIGH_BID_KICKIN > now) {
+            return s.lastBid + s.lastBid * NORMAL_BID_INCREASE_PERCENTAGE / 100;
         } else {
-            return s.lastBid + s.lastBid / 2;
+            return s.lastBid + s.lastBid * HIGH_BID_INCREASE_PERCENTAGE / 100;
         }
     }
     
@@ -274,7 +289,7 @@ contract DomainSale is ENSReverseRegister {
         }
         s.lastBidder = msg.sender;
         s.lastBid = msg.value;
-        s.auctionEnds = now + 24 hours;
+        s.auctionEnds = now + AUCTION_DURATION;
         s.bidReferrer = bidReferrer;
         Bid(msg.sender, _name, msg.value);
     }
@@ -344,9 +359,9 @@ contract DomainSale is ENSReverseRegister {
      * @dev Transfer funds for a sale to the relevant parties
      */
     function transferFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
-        seller.transfer(amount * 90 / 100);
-        startReferrer.transfer(amount * 5 / 100);
-        bidReferrer.transfer(amount * 5 / 100);
+        seller.transfer(amount * SELLER_SALE_PERCENTAGE / 100);
+        startReferrer.transfer(amount * START_REFERRER_SALE_PERCENTAGE / 100);
+        bidReferrer.transfer(amount * BID_REFERRER_SALE_PERCENTAGE / 100);
     }
     
     /**
