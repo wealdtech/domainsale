@@ -319,11 +319,9 @@ contract DomainSale is ENSReverseRegister {
      */
     function withdraw() public {
         uint256 withdrawalAmount = balances[msg.sender];
-        balances[msg.sender] = 0;
-        // Attempt a withdrawal
-        if (withdrawalAmount > 0 && !msg.sender.send(withdrawalAmount)) {
-            // Withdrawal failed; revert the balance
-            balances[msg.sender] = withdrawalAmount;
+        if (withdrawalAmount > 0) {
+            balances[msg.sender] = 0;
+            msg.sender.transfer(withdrawalAmount);
         }
     }
 
