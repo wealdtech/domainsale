@@ -12,7 +12,7 @@ pragma solidity ^0.4.2;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import "../../wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
+import "./vendor/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
 
 // Interesting parts of the ENS deed
 contract Deed {

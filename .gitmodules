@@ -1,0 +1,3 @@
+[submodule "contracts/vendor/wealdtech-solidity"]
+	path = contracts/vendor/wealdtech-solidity
+	url = https://github.com/wealdtech/wealdtech-solidity
