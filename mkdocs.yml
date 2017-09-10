@@ -1,0 +1,7 @@
+site_name: DomainSale
+pages:
+        - Home: index.md
+        - Process: process.md
+        - Contract: contract.md
+        - Events: events.md
+        - Help: help.md
