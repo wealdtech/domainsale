@@ -35,7 +35,7 @@ contract DomainSale is ENSReverseRegister {
     Registrar public registrar;
     mapping (string => Sale) private sales;
     mapping (address => uint256) private balances;
-    
+
     // Auction parameters
     uint256 private constant AUCTION_DURATION = 24 hours;
     uint256 private constant HIGH_BID_KICKIN = 7 days;
@@ -80,7 +80,7 @@ contract DomainSale is ENSReverseRegister {
     //
     // Events
     //
-    
+
     // Sent when a name is offered (can occur multiple times if the seller
     // changes their prices)
     event Offer(address indexed seller, string name, uint256 price, uint256 reserve);
@@ -105,7 +105,7 @@ contract DomainSale is ENSReverseRegister {
         require(deed.previousOwner() == msg.sender);
         _;
     }
-    
+
     // It is possible for a name to be invalidated, in which case the
     // owner will be reset
     modifier deedValid(string _name) {
@@ -146,7 +146,7 @@ contract DomainSale is ENSReverseRegister {
     function DomainSale(address _registry) ENSReverseRegister(_registry, CONTRACT_ENS) {
         registrar = Registrar(Registry(_registry).owner(NAMEHASH_ETH));
     }
-    
+
     //
     // Accessors for sales struct
     //
@@ -204,7 +204,7 @@ contract DomainSale is ENSReverseRegister {
             return s.lastBid + s.lastBid * HIGH_BID_INCREASE_PERCENTAGE / 100;
         }
     }
-    
+
     /**
      * @dev price is the instant purchase price.
      *      Throws if this sale does not accept an instant purchase
@@ -235,15 +235,15 @@ contract DomainSale is ENSReverseRegister {
         require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
-        s.reserve = reserve; 
-        s.price = _price; 
-        s.startReferrer = referrer; 
+        s.reserve = reserve;
+        s.price = _price;
+        s.startReferrer = referrer;
         Offer(msg.sender, _name, _price, reserve);
 
         // Funds tracker invariant
         assert(saleFunds + withdrawalFunds == address(this).balance);
     }
-    
+
     /**
      * @dev cancel a sale for a domain.
      *      This can only happen if there have been no bids for the name.
@@ -274,7 +274,7 @@ contract DomainSale is ENSReverseRegister {
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
         address previousOwner = deed.previousOwner();
-        
+
         // Transfer the name
         registrar.transfer(sha3(_name), msg.sender);
         Transfer(previousOwner, msg.sender, _name, msg.value);
@@ -297,7 +297,7 @@ contract DomainSale is ENSReverseRegister {
 
         Sale storage s = sales[_name];
         require(s.auctionStarted == 0 || now < s.auctionEnds);
-        
+
         // Update the balance for the outbid bidder
         balances[s.lastBidder] += s.lastBid;
         saleFunds -= s.lastBid;
@@ -319,7 +319,7 @@ contract DomainSale is ENSReverseRegister {
         // Funds tracker invariant
         assert(saleFunds + withdrawalFunds == address(this).balance);
     }
-    
+
     /**
      * @dev finish an auction
      */
@@ -330,7 +330,7 @@ contract DomainSale is ENSReverseRegister {
         // Obtain the previous owner from the deed
         Deed deed;
         (,deed,,,) = registrar.entries(sha3(_name));
-        
+
         address previousOwner = deed.previousOwner();
         registrar.transfer(sha3(_name), s.lastBidder);
         Transfer(previousOwner, s.lastBidder, _name, s.lastBid);
@@ -343,7 +343,7 @@ contract DomainSale is ENSReverseRegister {
         // Funds tracker invariant
         assert(saleFunds + withdrawalFunds == address(this).balance);
     }
-    
+
     /**
      * @dev withdraw any owned balance
      */
@@ -396,16 +396,16 @@ contract DomainSale is ENSReverseRegister {
         bidReferrer.transfer(amount * BID_REFERRER_SALE_PERCENTAGE / 100);
         saleFunds -= amount;
     }
-    
+
     /**
      * @dev Clear the storage for a name
      */
     function clearStorage(string _name) internal {
         // Clear name records
         sales[_name] = Sale({
-            reserve: 0, 
-            price: 0, 
-            lastBid:0, 
+            reserve: 0,
+            price: 0,
+            lastBid:0,
             lastBidder:0,
             auctionStarted:0,
             auctionEnds:0,
