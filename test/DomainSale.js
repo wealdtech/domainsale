@@ -121,6 +121,36 @@ contract('DomainSale', (accounts) => {
         assert.equal(await domainSale.auctionStarted('testdomain2'), false);
     });
 
+    it('should refuse a bid under the minimum', async() => {
+        await domainSale.offer('testdomain2', web3.toWei(0.1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, { from: testdomainOwner });
+        try {
+            await domainSale.bid('testdomain2', referrer2, { from: bidder1, value: web3.toWei(0.001, 'ether') });
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    it('should refuse to accept a buy when price is 0', async() => {
+        await domainSale.offer('testdomain2', 0, web3.toWei(0.1, 'ether'), referrer1, { from: testdomainOwner });
+        try {
+            await domainSale.buy('testdomain2', referrer2, { from: bidder1, value: web3.toWei(1, 'ether') });
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
+    it('should refuse to accept a bid when reserve is 0', async() => {
+        await domainSale.offer('testdomain2', web3.toWei(1, 'ether'), 0, referrer1, { from: testdomainOwner });
+        try {
+            await domainSale.bid('testdomain2', referrer2, { from: bidder1, value: web3.toWei(1, 'ether') });
+            assert.fail();
+        } catch (error) {
+            assertJump(error);
+        }
+    });
+
     it('should cancel an offer of a domain for sale', async() => {
         // Ensure that the auction has not started
         assert.equal(await domainSale.auctionStarted('testdomain2'), false);
