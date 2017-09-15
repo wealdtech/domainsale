@@ -10,9 +10,9 @@ Please refer to the introductory article to find out about Domainsale.
 
 ## How can I use DomainSale?
 
-There are a number of webistes and applications for both buyers and sellers.  These include:
+There are a number of websites and applications for both buyers and sellers.  These include:
 
-  - 
+  - Command-line utility for manging domain sales.  Useful for managing bulk buying or selling of domains.  Available at http://www.wealdtech.com/domainsale.html
 
 ## How can I write my own app using DomainSale?
 
