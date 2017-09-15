@@ -16,7 +16,7 @@ There are a number of webistes and applications for both buyers and sellers.  Th
 
 ## How can I write my own app using DomainSale?
 
-Details of how to develop apps using DomainSale are available at  ???
+Details of how to develop apps using DomainSale are available at http://domainsale.readthedocs.io/
 
 ## FAQ
 
