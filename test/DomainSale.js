@@ -1,5 +1,4 @@
 const ENS = artifacts.require("./ENS.sol");
-const FIFSRegistrar = artifacts.require("./FIFSRegistrar.sol");
 const MockEnsRegistrar = artifacts.require("./contracts/MockEnsRegistrar.sol");
 const DomainSale = artifacts.require("./DomainSale.sol");
 const Deed = artifacts.require("./Deed.sol");

@@ -396,7 +396,6 @@ contract DomainSale is ENSReverseRegister {
         seller.transfer(sellerFunds);
         startReferrer.transfer(startReferrerFunds);
         bidReferrer.transfer(bidReferrerFunds);
-        Funds(startReferrerFunds, bidReferrerFunds, sellerFunds);
     }
 
     /**
