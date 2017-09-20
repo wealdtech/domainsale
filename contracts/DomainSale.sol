@@ -284,7 +284,7 @@ contract DomainSale is ENSReverseRegister {
         clearStorage(_name);
 
         // Funds tracker invariant
-        require(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == address(this).balance);
     }
 
     /**
@@ -389,10 +389,14 @@ contract DomainSale is ENSReverseRegister {
      * @dev Transfer funds for a sale to the relevant parties
      */
     function transferFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
-        seller.transfer(amount * SELLER_SALE_PERCENTAGE / 100);
-        startReferrer.transfer(amount * START_REFERRER_SALE_PERCENTAGE / 100);
-        bidReferrer.transfer(amount * BID_REFERRER_SALE_PERCENTAGE / 100);
+        uint256 startReferrerFunds = amount * START_REFERRER_SALE_PERCENTAGE / 100;
+        uint256 bidReferrerFunds = amount * BID_REFERRER_SALE_PERCENTAGE / 100;
+        uint256 sellerFunds = amount - startReferrerFunds - bidReferrerFunds;
         saleFunds -= amount;
+        seller.transfer(sellerFunds);
+        startReferrer.transfer(startReferrerFunds);
+        bidReferrer.transfer(bidReferrerFunds);
+        Funds(startReferrerFunds, bidReferrerFunds, sellerFunds);
     }
 
     /**

@@ -24,6 +24,8 @@ const testdomain5LabelHash = sha3('testdomain5');
 const testdomain5ethNameHash = sha3(ethNameHash, testdomain5LabelHash);
 const testdomain6LabelHash = sha3('testdomain6');
 const testdomain6ethNameHash = sha3(ethNameHash, testdomain6LabelHash);
+const testdomain7LabelHash = sha3('testdomain7');
+const testdomain7ethNameHash = sha3(ethNameHash, testdomain7LabelHash);
 
 
 contract('DomainSale', (accounts) => {
@@ -53,6 +55,7 @@ contract('DomainSale', (accounts) => {
         await registrar.register(testdomain4LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
         await registrar.register(testdomain5LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
         await registrar.register(testdomain6LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
+        await registrar.register(testdomain7LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
     });
 
     it('should offer a domain for sale', async() => {
@@ -97,11 +100,11 @@ contract('DomainSale', (accounts) => {
         assert.equal(await Deed.at(entry[1]).previousOwner(), domainSale.address);
 
         // Ensure that the seller has 90% of the sale price
-        assert.equal(currentSellerFunds - priorSellerFunds, web3.toWei(1, 'ether') * 0.9);
+        assert.equal(currentSellerFunds.sub(priorSellerFunds), web3.toWei(1, 'ether') * 0.9);
         // Ensure that the first referrer has 5% of the sale price
-        assert.equal(currentReferrer1Funds - priorReferrer1Funds, web3.toWei(1, 'ether') * 0.05);
+        assert.equal(currentReferrer1Funds.sub(priorReferrer1Funds), web3.toWei(1, 'ether') * 0.05);
         // Ensure that the second referrer has 5% of the sale price
-        assert.equal(currentReferrer2Funds - priorReferrer2Funds, web3.toWei(1, 'ether') * 0.05);
+        assert.equal(currentReferrer2Funds.sub(priorReferrer2Funds), web3.toWei(1, 'ether') * 0.05);
     });
 
     it('should offer a domain for sale (2)', async() => {
@@ -252,11 +255,11 @@ contract('DomainSale', (accounts) => {
         assert.equal(await Deed.at(entry[1]).previousOwner(), domainSale.address);
 
         // Ensure that the seller has 90% of the sale price
-        assert.equal(currentSellerFunds - priorSellerFunds, web3.toWei(8, 'ether') * 0.9);
+        assert.equal(currentSellerFunds.sub(priorSellerFunds), web3.toWei(8, 'ether') * 0.9);
         // Ensure that the first referrer has 5% of the sale price
-        assert.equal(currentReferrer1Funds - priorReferrer1Funds, web3.toWei(8, 'ether') * 0.05);
+        assert.equal(currentReferrer1Funds.sub(priorReferrer1Funds), web3.toWei(8, 'ether') * 0.05);
         // Ensure that the second referrer has 5% of the sale price
-        assert.equal(currentReferrer2Funds - priorReferrer2Funds, web3.toWei(8, 'ether') * 0.05);
+        assert.equal(currentReferrer2Funds.sub(priorReferrer2Funds), web3.toWei(8, 'ether') * 0.05);
     });
 
     it('should not allow changes to the offer after the auction ends', async() => {
@@ -357,6 +360,33 @@ contract('DomainSale', (accounts) => {
         expectedFunds = bidder1Funds1.minus(gasUsed).plus(web3.toWei(0.03, 'ether'));
         const bidder1Funds2 = await web3.eth.getBalance(bidder1);
         assert.equal(expectedFunds.toString(), bidder1Funds2.toString());
+    });
+
+    it('should handle sub-Wei values to referrers', async() => {
+        await registrar.transfer(testdomain7LabelHash, domainSale.address, { from: testdomainOwner });
+        await domainSale.offer('testdomain7', web3.toWei(9, 'wei'), 0, referrer1, { from: testdomainOwner });
+
+        const priorSellerFunds = await web3.eth.getBalance(testdomainOwner);
+        const priorContractFunds = await web3.eth.getBalance(domainSale.address);
+        const priorReferrer1Funds = await web3.eth.getBalance(referrer1);
+        const priorReferrer2Funds = await web3.eth.getBalance(referrer2);
+        await domainSale.buy('testdomain7', referrer2, { from: bidder1, value: web3.toWei(9, 'wei') });
+        const currentSellerFunds = await web3.eth.getBalance(testdomainOwner);
+        const currentContractFunds = await web3.eth.getBalance(domainSale.address);
+        const currentReferrer1Funds = await web3.eth.getBalance(referrer1);
+        const currentReferrer2Funds = await web3.eth.getBalance(referrer2);
+
+        // Ensure that the deed is now owned by the winner
+        const entry = await registrar.entries(sha3('testdomain7'));
+        assert.equal(await Deed.at(entry[1]).owner(), bidder1);
+        assert.equal(await Deed.at(entry[1]).previousOwner(), domainSale.address);
+
+        // Ensure that the seller has 90% of the sale price (which rounds up to 9)
+        assert.equal(currentSellerFunds.sub(priorSellerFunds), web3.toWei(9, 'wei'));
+        // Ensure that the first referrer has 5% of the sale price (which rounds down to 0)
+        assert.equal(currentReferrer1Funds.sub(priorReferrer1Funds), web3.toWei(0, 'wei'));
+        // Ensure that the second referrer has 5% of the sale price (which rounds down to 0)
+        assert.equal(currentReferrer2Funds.sub(priorReferrer2Funds), web3.toWei(0, 'wei'));
     });
 
     it('should allow invalidation before an auction', async() => {
