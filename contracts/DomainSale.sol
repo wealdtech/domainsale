@@ -57,6 +57,8 @@ contract DomainSale is ENSReverseRegister {
     uint256 private saleFunds = 0;
     // Funds pending withdrawal
     uint256 private withdrawalFunds = 0;
+    // Total funds (cannot use balance as it can be stuffed)
+    uint256 private totalFunds = 0;
 
     struct Sale {
         // The lowest direct purchase price that will be accepted
@@ -137,6 +139,7 @@ contract DomainSale is ENSReverseRegister {
     // Payables add their value to the sales funds tracker
     modifier addSaleFunds(uint256 value) {
         saleFunds += value;
+        totalFunds += value;
         _;
     }
 
@@ -239,7 +242,7 @@ contract DomainSale is ENSReverseRegister {
         Offer(msg.sender, _name, _price, reserve);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
@@ -254,7 +257,7 @@ contract DomainSale is ENSReverseRegister {
         clearStorage(_name);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
@@ -284,7 +287,7 @@ contract DomainSale is ENSReverseRegister {
         clearStorage(_name);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
@@ -315,7 +318,7 @@ contract DomainSale is ENSReverseRegister {
         Bid(msg.sender, _name, msg.value);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
@@ -339,7 +342,7 @@ contract DomainSale is ENSReverseRegister {
         clearStorage(_name);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
@@ -350,6 +353,7 @@ contract DomainSale is ENSReverseRegister {
         if (amount > 0) {
             balances[msg.sender] = 0;
             withdrawalFunds -= amount;
+            totalFunds -= amount;
             msg.sender.transfer(amount);
         }
     }
@@ -378,7 +382,7 @@ contract DomainSale is ENSReverseRegister {
         clearStorage(_name);
 
         // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == address(this).balance);
+        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     //
@@ -393,6 +397,7 @@ contract DomainSale is ENSReverseRegister {
         uint256 bidReferrerFunds = amount * BID_REFERRER_SALE_PERCENTAGE / 100;
         uint256 sellerFunds = amount - startReferrerFunds - bidReferrerFunds;
         saleFunds -= amount;
+        totalFunds -= amount;
         seller.transfer(sellerFunds);
         startReferrer.transfer(startReferrerFunds);
         bidReferrer.transfer(bidReferrerFunds);
