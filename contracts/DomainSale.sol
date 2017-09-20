@@ -97,6 +97,14 @@ contract DomainSale is ENSReverseRegister {
     // Modifiers
     //
 
+    // Ensure that we don't lose any funds by keeping track of them as they
+    // move from sales funds to withdrawal funds and confirm that they equal
+    // the total funds
+    modifier fundsTracker() {
+        _;
+        assert(saleFunds + withdrawalFunds == totalFunds);
+    }
+
     // Actions that can only be undertaken by the seller of the name.
     // The owner of the name is this contract, so we use the previous
     // owner from the deed
@@ -232,7 +240,7 @@ contract DomainSale is ENSReverseRegister {
      *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
      */
-    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
+    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) fundsTracker public {
         require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
@@ -240,36 +248,27 @@ contract DomainSale is ENSReverseRegister {
         s.price = _price;
         s.startReferrer = referrer;
         Offer(msg.sender, _name, _price, reserve);
-
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
      * @dev cancel a sale for a domain.
      *      This can only happen if there have been no bids for the name.
      */
-    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
+    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) fundsTracker public {
+        // Finished with the sale information
+        delete sales[_name];
+
         registrar.transfer(sha3(_name), msg.sender);
         Cancel(_name);
-
-        // Tidy up
-        clearStorage(_name);
-
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
     }
 
     /**
      * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) addSaleFunds(msg.value) public payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) addSaleFunds(msg.value) fundsTracker public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
         require(s.auctionStarted == 0);
-
-        // As we're here, return any funds that the sender is owed
-        withdraw();
 
         // Obtain the previous owner from the deed
         Deed deed;
@@ -283,33 +282,30 @@ contract DomainSale is ENSReverseRegister {
         // Distribute funds to referrers
         transferFunds(msg.value, previousOwner, s.startReferrer, bidReferrer);
 
-        // Tidy up
-        clearStorage(_name);
+        // Finished with the sale information
+        delete sales[_name];
 
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
+        // As we're here, return any funds that the sender is owed
+        withdraw();
     }
 
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) addSaleFunds(msg.value) public payable {
+    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) addSaleFunds(msg.value) fundsTracker public payable {
         require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
         require(s.auctionStarted == 0 || now < s.auctionEnds);
 
-        // Update the balance for the outbid bidder
-        balances[s.lastBidder] += s.lastBid;
-        saleFunds -= s.lastBid;
-        withdrawalFunds += s.lastBid;
-
-        // As we're here, return any funds that the sender is owed
-        withdraw();
-
         if (s.auctionStarted == 0) {
           // First bid; set the auction start
           s.auctionStarted = now;
+        } else {
+          // Update the balance for the outbid bidder
+          balances[s.lastBidder] += s.lastBid;
+          saleFunds -= s.lastBid;
+          withdrawalFunds += s.lastBid;
         }
         s.lastBidder = msg.sender;
         s.lastBid = msg.value;
@@ -317,14 +313,14 @@ contract DomainSale is ENSReverseRegister {
         s.bidReferrer = bidReferrer;
         Bid(msg.sender, _name, msg.value);
 
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
+        // As we're here, return any funds that the sender is owed
+        withdraw();
     }
 
     /**
      * @dev finish an auction
      */
-    function finish(string _name) deedValid(_name) public {
+    function finish(string _name) deedValid(_name) fundsTracker public {
         Sale storage s = sales[_name];
         require(now > s.auctionEnds);
 
@@ -339,16 +335,17 @@ contract DomainSale is ENSReverseRegister {
         // Distribute funds to referrers
         transferFunds(s.lastBid, previousOwner, s.startReferrer, s.bidReferrer);
 
-        clearStorage(_name);
+        // Finished with the sale information
+        delete sales[_name];
 
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
+        // As we're here, return any funds that the sender is owed
+        withdraw();
     }
 
     /**
      * @dev withdraw any owned balance
      */
-    function withdraw() public {
+    function withdraw() fundsTracker public {
         uint256 amount = balances[msg.sender];
         if (amount > 0) {
             balances[msg.sender] = 0;
@@ -361,7 +358,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev Invalidate an auction if the deed is no longer active
      */
-    function invalidate(string _name) public {
+    function invalidate(string _name) fundsTracker public {
         // Ensure the deed has been invalidated
         address deed;
         (,deed,,,) = registrar.entries(sha3(_name));
@@ -371,18 +368,17 @@ contract DomainSale is ENSReverseRegister {
 
         // Update the balance for the winning bidder
         balances[s.lastBidder] += s.lastBid;
+        saleFunds -= s.lastBid;
+        withdrawalFunds += s.lastBid;
 
-        // As we're here, return any funds that the sender is owed
-        withdraw();
+        // Finished with the sale information
+        delete sales[_name];
 
         // Cancel the auction
         Cancel(_name);
 
-        // Tidy up
-        clearStorage(_name);
-
-        // Funds tracker invariant
-        assert(saleFunds + withdrawalFunds == totalFunds);
+        // As we're here, return any funds that the sender is owed
+        withdraw();
     }
 
     //
@@ -401,22 +397,5 @@ contract DomainSale is ENSReverseRegister {
         seller.transfer(sellerFunds);
         startReferrer.transfer(startReferrerFunds);
         bidReferrer.transfer(bidReferrerFunds);
-    }
-
-    /**
-     * @dev Clear the storage for a name
-     */
-    function clearStorage(string _name) internal {
-        // Clear name records
-        sales[_name] = Sale({
-            reserve: 0,
-            price: 0,
-            lastBid:0,
-            lastBidder:0,
-            auctionStarted:0,
-            auctionEnds:0,
-            startReferrer: 0,
-            bidReferrer: 0
-        });
     }
 }
