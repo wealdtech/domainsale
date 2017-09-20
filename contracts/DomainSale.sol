@@ -191,7 +191,6 @@ contract DomainSale is ENSReverseRegister {
      * @dev minimumBid is the greater of the minimum bid or the last bid + 10%.
      *      If an auction has been going longer than 7 days then it is the last
      *      bid + 50%.
-     *      Throws if this sale does not accept bids
      */
     function minimumBid(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
@@ -207,7 +206,6 @@ contract DomainSale is ENSReverseRegister {
 
     /**
      * @dev price is the instant purchase price.
-     *      Throws if this sale does not accept an instant purchase
      */
     function price(string _name) public constant returns (uint256) {
         Sale storage s = sales[_name];
