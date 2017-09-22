@@ -52,14 +52,6 @@ contract DomainSale is ENSReverseRegister {
     // Hex is namehash("eth")
     bytes32 private constant NAMEHASH_ETH = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
 
-    // Funds tracker.  Ensures we don't forget about any Ether
-    // Funds held for sales (both buys and bids)
-    uint256 private saleFunds = 0;
-    // Funds pending withdrawal
-    uint256 private withdrawalFunds = 0;
-    // Total funds (cannot use balance as it can be stuffed)
-    uint256 private totalFunds = 0;
-
     struct Sale {
         // The lowest direct purchase price that will be accepted
         uint256 price;
@@ -96,14 +88,6 @@ contract DomainSale is ENSReverseRegister {
     //
     // Modifiers
     //
-
-    // Ensure that we don't lose any funds by keeping track of them as they
-    // move from sales funds to withdrawal funds and confirm that they equal
-    // the total funds
-    modifier fundsTracker() {
-        _;
-        assert(saleFunds + withdrawalFunds == totalFunds);
-    }
 
     // Actions that can only be undertaken by the seller of the name.
     // The owner of the name is this contract, so we use the previous
@@ -144,13 +128,6 @@ contract DomainSale is ENSReverseRegister {
         _;
     }
 
-    // Payables add their value to the sales funds tracker
-    modifier addSaleFunds(uint256 value) {
-        saleFunds += value;
-        totalFunds += value;
-        _;
-    }
-
     /**
      * @dev Constructor takes the address of the ENS registry
      */
@@ -181,7 +158,7 @@ contract DomainSale is ENSReverseRegister {
      * @dev a flag set if this name can be purchased outright
      */
     function isBuyable(string _name) public constant returns (bool) {
-        return sales[_name].price != 0;
+        return sales[_name].price != 0 && sales[_name].auctionStarted == 0;
     }
 
     /**
@@ -240,7 +217,7 @@ contract DomainSale is ENSReverseRegister {
      *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
      */
-    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) fundsTracker public {
+    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
         require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
@@ -254,7 +231,7 @@ contract DomainSale is ENSReverseRegister {
      * @dev cancel a sale for a domain.
      *      This can only happen if there have been no bids for the name.
      */
-    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) fundsTracker public {
+    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
         // Finished with the sale information
         delete sales[_name];
 
@@ -265,7 +242,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) addSaleFunds(msg.value) fundsTracker public payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
         require(s.auctionStarted == 0);
@@ -292,7 +269,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) addSaleFunds(msg.value) fundsTracker public payable {
+    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) public payable {
         require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
@@ -304,8 +281,6 @@ contract DomainSale is ENSReverseRegister {
         } else {
           // Update the balance for the outbid bidder
           balances[s.lastBidder] += s.lastBid;
-          saleFunds -= s.lastBid;
-          withdrawalFunds += s.lastBid;
         }
         s.lastBidder = msg.sender;
         s.lastBid = msg.value;
@@ -320,7 +295,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev finish an auction
      */
-    function finish(string _name) deedValid(_name) fundsTracker public {
+    function finish(string _name) deedValid(_name) public {
         Sale storage s = sales[_name];
         require(now > s.auctionEnds);
 
@@ -345,12 +320,10 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev withdraw any owned balance
      */
-    function withdraw() fundsTracker public {
+    function withdraw() public {
         uint256 amount = balances[msg.sender];
         if (amount > 0) {
             balances[msg.sender] = 0;
-            withdrawalFunds -= amount;
-            totalFunds -= amount;
             msg.sender.transfer(amount);
         }
     }
@@ -358,7 +331,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev Invalidate an auction if the deed is no longer active
      */
-    function invalidate(string _name) fundsTracker public {
+    function invalidate(string _name) public {
         // Ensure the deed has been invalidated
         address deed;
         (,deed,,,) = registrar.entries(sha3(_name));
@@ -368,8 +341,6 @@ contract DomainSale is ENSReverseRegister {
 
         // Update the balance for the winning bidder
         balances[s.lastBidder] += s.lastBid;
-        saleFunds -= s.lastBid;
-        withdrawalFunds += s.lastBid;
 
         // Finished with the sale information
         delete sales[_name];
@@ -392,8 +363,6 @@ contract DomainSale is ENSReverseRegister {
         uint256 startReferrerFunds = amount * START_REFERRER_SALE_PERCENTAGE / 100;
         uint256 bidReferrerFunds = amount * BID_REFERRER_SALE_PERCENTAGE / 100;
         uint256 sellerFunds = amount - startReferrerFunds - bidReferrerFunds;
-        saleFunds -= amount;
-        totalFunds -= amount;
         seller.transfer(sellerFunds);
         startReferrer.transfer(startReferrerFunds);
         bidReferrer.transfer(bidReferrerFunds);

@@ -193,8 +193,16 @@ contract('DomainSale', (accounts) => {
         var minimumBid = await domainSale.minimumBid('testdomain2');
         assert.equal(minimumBid, web3.toWei(0.1, 'ether'));
 
+        // Confirm that the name is buyable and biddable
+        assert.equal(await domainSale.isBuyable('testdomain2'), true);
+        assert.equal(await domainSale.isAuction('testdomain2'), true);
+
         // Bid from first bidder
         await domainSale.bid('testdomain2', referrer2, { from: bidder1, value: web3.toWei(0.1, 'ether') });
+
+        // Confirm that the name is no longer buyable but still biddable
+        assert.equal(await domainSale.isBuyable('testdomain2'), false);
+        assert.equal(await domainSale.isAuction('testdomain2'), true);
 
         // Ensure that the auction has started
         assert.equal(await domainSale.auctionStarted('testdomain2'), true);
