@@ -4,4 +4,6 @@ pages:
         - Process: process.md
         - Contract: contract.md
         - Events: events.md
+        - Clients:
+          - Command-line interface: clients/cli.md
         - Help: help.md
