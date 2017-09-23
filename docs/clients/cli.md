@@ -54,13 +54,36 @@ There are a number of options that are available for all commands.  These are:
 
 Any commands that send transactions have the following additional options:
 
-* `passphrase` the passphrase to unlock the account that is being used for the command.  This is required to sign any transaction sent to the network, which is any action around buying or selling domains
+* `passphrase` the passphrase to unlock the account being used for the command.  This is required to sign any transaction sent to the network, which is any action around buying or selling domains
 * `gasprice` the price of gas for the transaction.  This defaults to a relatively low value of 4GWei.  If you are in a hurry with your transaction you might need to increase this to 20GWei or even higher.  An overview of the expected transaction wait time for differing gas prices can be seen at http://ethgasstation.info/
 * `nonce` the nonce for the transaction.  Sending multiple commands in quick succession (for example, offering or bidding on multiple domains as part of a script) require nonces to avoid the issue where one command might attempt to override another in the chain.  Sample scripts using nonces are shown in the examples section at the end of this document
 
 ## General
 
 The DomainSale process for buyers consists of a number of possibilities depending on if the buyer wants to purchase a domain outright or to bid for a domain.
+
+### search
+
+Search for domains that match a given substring.  An example of this is:
+
+```text
+domainsale search myd
+```
+
+Breaking this down:
+
+* `search` is the command to be carried out
+* `myd` is the string for which any matching domain sale is returned
+
+If domains are found this command will return info on each of them, for example:
+
+```
+mydomain61 auction closed at Sat Sep 23 06:40:37 with a winning bid of 0.2 Ether
+mydomain62 is under auction and closes at Sun Sep 24 08:18:04.  It can be bid on for 0.44 Ether
+mydomain76 can be purchased for 7 Ether or auctioned with a starting bid of 0.18 Ether
+mydomain78 can be purchased for 8 Ether
+mydomain86 can be auctioned with a starting bid of 0.16 Ether
+```
 
 ### info
 
@@ -72,7 +95,7 @@ domainsale info mydomain.eth
 
 Breaking this down:
 
-* `info` is the command that is to be carried out
+* `info` is the command to be carried out
 * `mydomain.eth` is the domain for which information is being sought
 
 If the domain is not for sale this command will return
@@ -110,9 +133,9 @@ domainsale buy --price="4 ether" --address=0xce4a68eafa7eda08e16419a14c146e1277f
 Breaking this down:
 
 * `price` is the amount of ether used to buy the domain
-* `address` is the address of the account that is purchasing the domain
-* `passphrase` is the passphrase to the account that is purchasing the domain
-* `mydomain.eth` is the domain that is being purchased
+* `address` is the address of the account purchasing the domain
+* `passphrase` is the passphrase to the account purchasing the domain
+* `mydomain.eth` is the domain being purchased
 
 If this command completes successfully it will present the transaction ID for the purchase of the domain.  If it fails then it will present details about why it failed.
 
@@ -127,9 +150,9 @@ domainsale bid --bid="0.1 ether" --address=0xce4a68eafa7eda08e16419a14c146e1277f
 Breaking this down:
 
 * `bid` is the amount of ether used to bid for the domain
-* `address` is the address of the account that is bidding for the domain
-* `passphrase` is the passphrase to the account that is bidding for the domain
-* `mydomain.eth` is the domain that is being bid upon
+* `address` is the address of the account bidding for the domain
+* `passphrase` is the passphrase to the account bidding for the domain
+* `mydomain.eth` is the domain being bid upon
 
 If this command completes successfully it will present the transaction ID for the bid for the domain.  If it fails then it will present details about why it failed.
 
@@ -178,7 +201,7 @@ domainsale transfer --passphrase=my_secret_phrase mydomain.eth
 Breaking this down:
 
 * `passphrase` is the passphrase to the account that currently owns mydomain.eth
-* `mydomain.eth` is the domain that is being transferred
+* `mydomain.eth` is the domain being transferred
 
 If this command completes successfully it will present the transaction ID for the transfer of the domain.  If it fails then it will present details about why it failed.
 
@@ -195,7 +218,7 @@ Breaking this down:
 * `price` is the price at which the domain can be purchased directly; leave this out if not required
 * `reserve` is the price at which the domain can be auctioned; leave this out if not required
 * `passphrase` is the passphrase to the account that transferred mydomain.eth to DomainSale
-* `mydomain.eth` is the domain that is being offered
+* `mydomain.eth` is the domain being offered
 
 If this command completes successfully it will present the transaction ID for the offer of the domain.  If it fails then it will present details about why it failed.
 
@@ -210,7 +233,7 @@ domainsale cancel --passphrase=my_secret_phrase mydomain.eth
 Breaking this down:
 
 * `passphrase` is the passphrase to the account that transferred mydomain.eth to DomainSale
-* `mydomain.eth` is the domain that is being cancelled
+* `mydomain.eth` is the domain being cancelled
 
 If this command completes successfully it will present the transaction ID for the cancellation of the domain sale.  If it fails then it will present details about why it failed.
 
