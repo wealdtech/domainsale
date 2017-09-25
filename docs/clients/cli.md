@@ -173,9 +173,23 @@ Breaking this down:
 
 If this command completes successfully it will present the transaction ID for the completion of the auction.  If it fails then it will present details about why it failed.
 
+### balance
+
+If a user bid as part of an auction but failed to win their funds will be held pending withdrawal.  This is also true of all funds received by sellers of domains.  This command lists any funds that are owed to the given address.  An example of this is:
+
+```text
+domainsale balance 0xce4a68eafa7eda08e16419a14c146e1277fdebb5
+```
+
+Breaking this down:
+
+* `0xce4a68eafa7eda08e16419a14c146e1277fdebb5` is the address of the account that is being checked for funds
+
+If this command completes successfully it will state the amount of funds pending withdrawal.  If it fails then it will present details about why it failed.
+
 ### withdraw
 
-If a user bid as part of an auction but failed to win their funds will be held pending withdrawal.  An example of this is:
+If a user bid as part of an auction but failed to win their funds will be held pending withdrawal.  This is also true of all funds received by sellers of domains.  This command withdraws any funds that are owed to the given address.  An example of this is:
 
 ```text
 domainsale withdraw --passphrase=my_secret_phrase 0xce4a68eafa7eda08e16419a14c146e1277fdebb5
