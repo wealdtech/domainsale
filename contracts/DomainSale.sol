@@ -12,7 +12,10 @@ pragma solidity ^0.4.2;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import "./vendor/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
+import "node_modules/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
+import "node_modules/wealdtech-solidity/contracts/math/SafeMath.sol";
+//import "./vendor/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
+//import "./vendor/wealdtech-solidity/contracts/math/SafeMath.sol";
 
 // Interesting parts of the ENS deed
 contract Deed {
@@ -32,6 +35,8 @@ contract Registrar {
 }
 
 contract DomainSale is ENSReverseRegister {
+    using SafeMath for uint256;
+
     Registrar public registrar;
     mapping (string => Sale) private sales;
     mapping (address => uint256) private balances;
@@ -185,10 +190,10 @@ contract DomainSale is ENSReverseRegister {
 
         if (s.auctionStarted == 0) {
             return s.reserve;
-        } else if (s.auctionStarted + HIGH_BID_KICKIN > now) {
-            return s.lastBid + s.lastBid * NORMAL_BID_INCREASE_PERCENTAGE / 100;
+        } else if (s.auctionStarted.add(HIGH_BID_KICKIN) > now) {
+            return s.lastBid.add(s.lastBid.mul(NORMAL_BID_INCREASE_PERCENTAGE).div(100));
         } else {
-            return s.lastBid + s.lastBid * HIGH_BID_INCREASE_PERCENTAGE / 100;
+            return s.lastBid.add(s.lastBid.mul(HIGH_BID_INCREASE_PERCENTAGE).div(100));
         }
     }
 
@@ -196,9 +201,7 @@ contract DomainSale is ENSReverseRegister {
      * @dev price is the instant purchase price.
      */
     function price(string _name) public constant returns (uint256) {
-        Sale storage s = sales[_name];
-
-        return s.price;
+        return sales[_name].price;
     }
 
     /**
@@ -257,7 +260,7 @@ contract DomainSale is ENSReverseRegister {
         Transfer(previousOwner, msg.sender, _name, msg.value);
 
         // Distribute funds to referrers
-        transferFunds(msg.value, previousOwner, s.startReferrer, bidReferrer);
+        distributeFunds(msg.value, previousOwner, s.startReferrer, bidReferrer);
 
         // Finished with the sale information
         delete sales[_name];
@@ -280,11 +283,11 @@ contract DomainSale is ENSReverseRegister {
           s.auctionStarted = now;
         } else {
           // Update the balance for the outbid bidder
-          balances[s.lastBidder] += s.lastBid;
+          balances[s.lastBidder] = balances[s.lastBidder].add(s.lastBid);
         }
         s.lastBidder = msg.sender;
         s.lastBid = msg.value;
-        s.auctionEnds = now + AUCTION_DURATION;
+        s.auctionEnds = now.add(AUCTION_DURATION);
         s.bidReferrer = bidReferrer;
         Bid(msg.sender, _name, msg.value);
 
@@ -308,7 +311,7 @@ contract DomainSale is ENSReverseRegister {
         Transfer(previousOwner, s.lastBidder, _name, s.lastBid);
 
         // Distribute funds to referrers
-        transferFunds(s.lastBid, previousOwner, s.startReferrer, s.bidReferrer);
+        distributeFunds(s.lastBid, previousOwner, s.startReferrer, s.bidReferrer);
 
         // Finished with the sale information
         delete sales[_name];
@@ -340,7 +343,7 @@ contract DomainSale is ENSReverseRegister {
         Sale storage s = sales[_name];
 
         // Update the balance for the winning bidder
-        balances[s.lastBidder] += s.lastBid;
+        balances[s.lastBidder] = balances[s.lastBidder].add(s.lastBid);
 
         // Finished with the sale information
         delete sales[_name];
@@ -357,14 +360,14 @@ contract DomainSale is ENSReverseRegister {
     //
 
     /**
-     * @dev Transfer funds for a sale to the relevant parties
+     * @dev Distribute funds for a sale to the relevant parties
      */
-    function transferFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
-        uint256 startReferrerFunds = amount * START_REFERRER_SALE_PERCENTAGE / 100;
-        uint256 bidReferrerFunds = amount * BID_REFERRER_SALE_PERCENTAGE / 100;
-        uint256 sellerFunds = amount - startReferrerFunds - bidReferrerFunds;
-        seller.transfer(sellerFunds);
-        startReferrer.transfer(startReferrerFunds);
-        bidReferrer.transfer(bidReferrerFunds);
+    function distributeFunds(uint256 amount, address seller, address startReferrer, address bidReferrer) internal {
+        uint256 startReferrerFunds = amount.mul(START_REFERRER_SALE_PERCENTAGE).div(100);
+        balances[startReferrer] = balances[startReferrer].add(startReferrerFunds);
+        uint256 bidReferrerFunds = amount.mul(BID_REFERRER_SALE_PERCENTAGE).div(100);
+        balances[bidReferrer] = balances[bidReferrer].add(bidReferrerFunds);
+        uint256 sellerFunds = amount.sub(startReferrerFunds).sub(bidReferrerFunds);
+        balances[seller] = balances[seller].add(sellerFunds);
     }
 }

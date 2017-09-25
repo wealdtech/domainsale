@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "bignumber": "^1.1.0",
-    "solidity-sha3": "^0.4.1"
+    "solidity-sha3": "^0.4.1",
+    "wealdtech-solidity": "^0.9.1"
   }
 }
