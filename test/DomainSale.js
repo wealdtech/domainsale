@@ -85,13 +85,13 @@ contract('DomainSale', (accounts) => {
         // Ensure that the auction has not started
         assert.equal(await domainSale.auctionStarted('testdomain1'), false);
 
-        const priorSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const priorReferrer1Balance = await domainSale.balance({from: referrer1});
-        const priorReferrer2Balance = await domainSale.balance({from: referrer2});
+        const priorSellerBalance = await domainSale.balance(testdomainOwner);
+        const priorReferrer1Balance = await domainSale.balance(referrer1);
+        const priorReferrer2Balance = await domainSale.balance(referrer2);
         await domainSale.buy('testdomain1', referrer2, { from: bidder1, value: web3.toWei(1, 'ether') });
-        const currentSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const currentReferrer1Balance = await domainSale.balance({from: referrer1});
-        const currentReferrer2Balance = await domainSale.balance({from: referrer2});
+        const currentSellerBalance = await domainSale.balance(testdomainOwner);
+        const currentReferrer1Balance = await domainSale.balance(referrer1);
+        const currentReferrer2Balance = await domainSale.balance(referrer2);
 
         // Ensure that the auction has not started
         assert.equal(await domainSale.auctionStarted('testdomain1'), false);
@@ -249,13 +249,13 @@ contract('DomainSale', (accounts) => {
     });
 
     it('should finish auctions correctly', async() => {
-        const priorSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const priorReferrer1Balance = await domainSale.balance({from: referrer1});
-        const priorReferrer2Balance = await domainSale.balance({from: referrer2});
+        const priorSellerBalance = await domainSale.balance(testdomainOwner);
+        const priorReferrer1Balance = await domainSale.balance(referrer1);
+        const priorReferrer2Balance = await domainSale.balance(referrer2);
         await domainSale.finish('testdomain2', { from: bidder2 });
-        const currentSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const currentReferrer1Balance = await domainSale.balance({from: referrer1});
-        const currentReferrer2Balance = await domainSale.balance({from: referrer2});
+        const currentSellerBalance = await domainSale.balance(testdomainOwner);
+        const currentReferrer1Balance = await domainSale.balance(referrer1);
+        const currentReferrer2Balance = await domainSale.balance(referrer2);
 
         // Ensure that the deed is now owned by the winner
         const entry = await registrar.entries(sha3('testdomain2'));
@@ -341,7 +341,7 @@ contract('DomainSale', (accounts) => {
         // Bidder 1 is outbid by bidder 2 and so gains a balance
         await domainSale.bid('testdomain5', referrer1, { from: bidder1, value: web3.toWei(0.01, 'ether') });
         await domainSale.bid('testdomain5', referrer1, { from: bidder2, value: web3.toWei(0.02, 'ether') });
-        bidder1Balance = await domainSale.balance({ from: bidder1 });
+        bidder1Balance = await domainSale.balance(bidder1);
         assert.equal(bidder1Balance.toString(), web3.toWei(0.01, 'ether').toString());
 
         // Bidder 1 bids on a different name and should obtain their balance back
@@ -358,7 +358,7 @@ contract('DomainSale', (accounts) => {
         // Bidder 1 is outbid by bidder 2 and so gains a balance
         await domainSale.bid('testdomain5', referrer1, { from: bidder1, value: web3.toWei(0.03, 'ether') });
         await domainSale.bid('testdomain5', referrer1, { from: bidder2, value: web3.toWei(0.04, 'ether') });
-        bidder1Balance = await domainSale.balance({ from: bidder1 });
+        bidder1Balance = await domainSale.balance(bidder1);
         assert.equal(bidder1Balance.toString(), web3.toWei(0.03, 'ether').toString());
 
         // Bidder 1 withdraws the balance
@@ -374,13 +374,13 @@ contract('DomainSale', (accounts) => {
         await registrar.transfer(testdomain7LabelHash, domainSale.address, { from: testdomainOwner });
         await domainSale.offer('testdomain7', web3.toWei(9, 'wei'), 0, referrer1, { from: testdomainOwner });
 
-        const priorSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const priorReferrer1Balance = await domainSale.balance({from: referrer1});
-        const priorReferrer2Balance = await domainSale.balance({from: referrer2});
+        const priorSellerBalance = await domainSale.balance(testdomainOwner);
+        const priorReferrer1Balance = await domainSale.balance(referrer1);
+        const priorReferrer2Balance = await domainSale.balance(referrer2);
         await domainSale.buy('testdomain7', referrer2, { from: bidder1, value: web3.toWei(9, 'wei') });
-        const currentSellerBalance = await domainSale.balance({from: testdomainOwner});
-        const currentReferrer1Balance = await domainSale.balance({from: referrer1});
-        const currentReferrer2Balance = await domainSale.balance({from: referrer2});
+        const currentSellerBalance = await domainSale.balance(testdomainOwner);
+        const currentReferrer1Balance = await domainSale.balance(referrer1);
+        const currentReferrer2Balance = await domainSale.balance(referrer2);
 
         // Ensure that the deed is now owned by the winner
         const entry = await registrar.entries(sha3('testdomain7'));

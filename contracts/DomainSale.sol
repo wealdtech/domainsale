@@ -207,8 +207,8 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev The balance available for withdrawal
      */
-    function balance() public constant returns (uint256) {
-        return balances[msg.sender];
+    function balance(address addr) public constant returns (uint256) {
+        return balances[addr];
     }
 
     //
