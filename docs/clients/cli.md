@@ -173,6 +173,8 @@ Breaking this down:
 
 If this command completes successfully it will present the transaction ID for the completion of the auction.  If it fails then it will present details about why it failed.
 
+## Checking and obtaining funds
+
 ### balance
 
 If a user bid as part of an auction but failed to win their funds will be held pending withdrawal.  This is also true of all funds received by sellers of domains.  This command lists any funds that are owed to the given address.  An example of this is:

@@ -14,8 +14,6 @@ pragma solidity ^0.4.2;
 
 import "node_modules/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
 import "node_modules/wealdtech-solidity/contracts/math/SafeMath.sol";
-//import "./vendor/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
-//import "./vendor/wealdtech-solidity/contracts/math/SafeMath.sol";
 
 // Interesting parts of the ENS deed
 contract Deed {
