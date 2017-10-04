@@ -557,4 +557,95 @@ contract('DomainSale', (accounts) => {
 
         await domainSale.finish('malicious4', { from: bidder2 });
     });
+
+    it('should not offer when paused', async() => {
+        const testdomain9LabelHash = sha3('testdomain9');
+        const testdomain9ethNameHash = sha3(ethNameHash, testdomain9LabelHash);
+        await registrar.register(testdomain9LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
+        await registrar.transfer(testdomain9LabelHash, domainSale.address, { from: testdomainOwner });
+
+        await domainSale.pause({from: domainSaleOwner});
+        try {
+            await domainSale.offer('testdomain9', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, { from: testdomainOwner });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        } finally {
+           await domainSale.unpause({from: domainSaleOwner});
+        }
+    });
+
+    it('should not buy when paused', async() => {
+        await domainSale.offer('testdomain9', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, { from: testdomainOwner });
+
+        await domainSale.pause({from: domainSaleOwner});
+        try {
+            await domainSale.buy('testdomain9', referrer1, { from: bidder1, value: web3.toWei(1, 'ether') });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        } finally {
+            await domainSale.unpause({from: domainSaleOwner});
+        }
+        await domainSale.buy('testdomain9', referrer1, { from: bidder1, value: web3.toWei(1, 'ether') });
+    });
+
+    it('should not bid when paused', async() => {
+        const testdomain10LabelHash = sha3('testdomain10');
+        const testdomain10ethNameHash = sha3(ethNameHash, testdomain10LabelHash);
+        await registrar.register(testdomain10LabelHash, { from: testdomainOwner, value: web3.toWei(0.01, 'ether') });
+        await registrar.transfer(testdomain10LabelHash, domainSale.address, { from: testdomainOwner });
+        await domainSale.offer('testdomain10', web3.toWei(1, 'ether'), web3.toWei(0.01, 'ether'), referrer1, { from: testdomainOwner });
+
+        await domainSale.bid('testdomain10', referrer1, { from: bidder1, value: web3.toWei(0.1, 'ether') });
+        await domainSale.pause({from: domainSaleOwner});
+        try {
+            await domainSale.bid('testdomain10', referrer1, { from: bidder2, value: web3.toWei(0.2, 'ether') });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        } finally {
+            await domainSale.unpause({from: domainSaleOwner});
+        }
+        await domainSale.bid('testdomain10', referrer1, { from: bidder2, value: web3.toWei(0.2, 'ether') });
+    });
+
+    it('should not finish when paused', async() => {
+        increaseTime(86401); // No bids for more than 1 day
+        mine();
+
+        await domainSale.pause({from: domainSaleOwner});
+        try {
+            await domainSale.finish('testdomain10', { from: bidder2 });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        } finally {
+            await domainSale.unpause({from: domainSaleOwner});
+        }
+        await domainSale.finish('testdomain10', { from: bidder2 });
+    });
+
+    it('should not withdraw when paused', async() => {
+
+        await domainSale.pause({from: domainSaleOwner});
+        try {
+            await domainSale.withdraw({ from: testdomainOwner });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        } finally {
+            await domainSale.unpause({from: domainSaleOwner});
+        }
+        await domainSale.withdraw({ from: testdomainOwner });
+    });
+
+    it('should not allow non-owner to pause', async() => {
+        try {
+            await domainSale.pause({from: testdomainOwner });
+            assert.fail();
+        } catch (error) {
+            // Okay
+        }
+    });
 });

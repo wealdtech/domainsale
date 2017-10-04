@@ -14,6 +14,8 @@ pragma solidity ^0.4.2;
 
 import "node_modules/wealdtech-solidity/contracts/ens/ENSReverseRegister.sol";
 import "node_modules/wealdtech-solidity/contracts/math/SafeMath.sol";
+import "node_modules/wealdtech-solidity/contracts/auth/Permissioned.sol";
+import "node_modules/wealdtech-solidity/contracts/lifecycle/Pausable.sol";
 
 // Interesting parts of the ENS deed
 contract Deed {
@@ -23,16 +25,16 @@ contract Deed {
 
 // Interesting parts of the ENS registry
 contract Registry {
-    function owner(bytes32 _hash) constant returns (address);
+    function owner(bytes32 _hash) public constant returns (address);
 }
 
 // Interesting parts of the ENS registrar
 contract Registrar {
-    function transfer(bytes32 _hash, address newOwner);
-    function entries(bytes32 _hash) constant returns (uint, Deed, uint, uint, uint);
+    function transfer(bytes32 _hash, address newOwner) public;
+    function entries(bytes32 _hash) public constant returns (uint, Deed, uint, uint, uint);
 }
 
-contract DomainSale is ENSReverseRegister {
+contract DomainSale is ENSReverseRegister, Pausable {
     using SafeMath for uint256;
 
     Registrar public registrar;
@@ -87,6 +89,8 @@ contract DomainSale is ENSReverseRegister {
     event Transfer(address indexed seller, address indexed buyer, string name, uint256 value);
     // Sent when a sale for a name is cancelled
     event Cancel(string name);
+    // Sent when funds are withdrawn
+    event Withdraw(address indexed recipient, uint256 amount);
 
     //
     // Modifiers
@@ -97,7 +101,7 @@ contract DomainSale is ENSReverseRegister {
     // owner from the deed
     modifier onlyNameSeller(string _name) {
         Deed deed;
-        (,deed,,,) = registrar.entries(sha3(_name));
+        (,deed,,,) = registrar.entries(keccak256(_name));
         require(deed.owner() == address(this));
         require(deed.previousOwner() == msg.sender);
         _;
@@ -107,7 +111,7 @@ contract DomainSale is ENSReverseRegister {
     // owner will be reset
     modifier deedValid(string _name) {
         address deed;
-        (,deed,,,) = registrar.entries(sha3(_name));
+        (,deed,,,) = registrar.entries(keccak256(_name));
         require(deed != 0);
         _;
     }
@@ -134,7 +138,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev Constructor takes the address of the ENS registry
      */
-    function DomainSale(address _registry) ENSReverseRegister(_registry, CONTRACT_ENS) {
+    function DomainSale(address _registry) public ENSReverseRegister(_registry, CONTRACT_ENS) {
         registrar = Registrar(Registry(_registry).owner(NAMEHASH_ETH));
     }
 
@@ -218,7 +222,7 @@ contract DomainSale is ENSReverseRegister {
      *      The price is the price at which a domain can be purchased directly.
      *      The reserve is the initial lowest price for which a bid can be made.
      */
-    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
+    function offer(string _name, uint256 _price, uint256 reserve, address referrer) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) ifNotPaused public {
         require(_price == 0 || _price > reserve);
         require(_price != 0 || reserve != 0);
         Sale storage s = sales[_name];
@@ -232,29 +236,29 @@ contract DomainSale is ENSReverseRegister {
      * @dev cancel a sale for a domain.
      *      This can only happen if there have been no bids for the name.
      */
-    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) public {
+    function cancel(string _name) onlyNameSeller(_name) auctionNotStarted(_name) deedValid(_name) ifNotPaused public {
         // Finished with the sale information
         delete sales[_name];
 
-        registrar.transfer(sha3(_name), msg.sender);
+        registrar.transfer(keccak256(_name), msg.sender);
         Cancel(_name);
     }
 
     /**
      * @dev buy a domain directly
      */
-    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) public payable {
+    function buy(string _name, address bidReferrer) canBuy(_name) deedValid(_name) ifNotPaused public payable {
         Sale storage s = sales[_name];
         require(msg.value >= s.price);
         require(s.auctionStarted == 0);
 
         // Obtain the previous owner from the deed
         Deed deed;
-        (,deed,,,) = registrar.entries(sha3(_name));
+        (,deed,,,) = registrar.entries(keccak256(_name));
         address previousOwner = deed.previousOwner();
 
         // Transfer the name
-        registrar.transfer(sha3(_name), msg.sender);
+        registrar.transfer(keccak256(_name), msg.sender);
         Transfer(previousOwner, msg.sender, _name, msg.value);
 
         // Distribute funds to referrers
@@ -270,7 +274,7 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev bid for a domain
      */
-    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) public payable {
+    function bid(string _name, address bidReferrer) canBid(_name) deedValid(_name) ifNotPaused public payable {
         require(msg.value >= minimumBid(_name));
 
         Sale storage s = sales[_name];
@@ -296,16 +300,16 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev finish an auction
      */
-    function finish(string _name) deedValid(_name) public {
+    function finish(string _name) deedValid(_name) ifNotPaused public {
         Sale storage s = sales[_name];
         require(now > s.auctionEnds);
 
         // Obtain the previous owner from the deed
         Deed deed;
-        (,deed,,,) = registrar.entries(sha3(_name));
+        (,deed,,,) = registrar.entries(keccak256(_name));
 
         address previousOwner = deed.previousOwner();
-        registrar.transfer(sha3(_name), s.lastBidder);
+        registrar.transfer(keccak256(_name), s.lastBidder);
         Transfer(previousOwner, s.lastBidder, _name, s.lastBid);
 
         // Distribute funds to referrers
@@ -321,21 +325,22 @@ contract DomainSale is ENSReverseRegister {
     /**
      * @dev withdraw any owned balance
      */
-    function withdraw() public {
+    function withdraw() ifNotPaused public {
         uint256 amount = balances[msg.sender];
         if (amount > 0) {
             balances[msg.sender] = 0;
             msg.sender.transfer(amount);
+            Withdraw(msg.sender, amount);
         }
     }
 
     /**
      * @dev Invalidate an auction if the deed is no longer active
      */
-    function invalidate(string _name) public {
+    function invalidate(string _name) ifNotPaused public {
         // Ensure the deed has been invalidated
         address deed;
-        (,deed,,,) = registrar.entries(sha3(_name));
+        (,deed,,,) = registrar.entries(keccak256(_name));
         require(deed == 0);
 
         Sale storage s = sales[_name];
