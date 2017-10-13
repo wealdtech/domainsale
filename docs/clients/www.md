@@ -2,13 +2,13 @@ Information about the current state of sales within DomainSale is available from
 
 ## HTML Interface
 
-The [HTML interface](http://domainsale-ropsten.wealdtech.com/) provides information about every name in the DomainSale system.  It shows if the name is available for purchase or bidding, what the required prices are, and when any on-going auction is scheduled to close.
+The [HTML interface](http://domainsale.wealdtech.com/) provides information about every name in the DomainSale system.  It shows if the name is available for purchase or bidding, what the required prices are, and when any on-going auction is scheduled to close.
 
 ## REST API
 
 The REST API provides the same information as available from the web interface.  The endpoints available for the API are as follows:
 
-### [/sales/](http://domainsale-ropsten.wealdtech.com/sales/)
+### [/sales/](http://domainsale.wealdtech.com/sales/)
 
 This provides all names currently in the DomainSale system.  Query parameters are:
 
@@ -46,7 +46,7 @@ A sample output might be:
 }
 ````
 
-### [/meta/sales](http://domainsale-ropsten.wealdtech.com/meta/sales)
+### [/meta/sales](http://domainsale.wealdtech.com/meta/sales)
 
 This provides metadata about the sales in the DomainSale system.
 

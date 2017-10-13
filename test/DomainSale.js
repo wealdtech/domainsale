@@ -88,7 +88,8 @@ contract('DomainSale', (accounts) => {
         const priorSellerBalance = await domainSale.balance(testdomainOwner);
         const priorReferrer1Balance = await domainSale.balance(referrer1);
         const priorReferrer2Balance = await domainSale.balance(referrer2);
-        await domainSale.buy('testdomain1', referrer2, { from: bidder1, value: web3.toWei(1, 'ether') });
+        tx = await domainSale.buy('testdomain1', referrer2, { from: bidder1, value: web3.toWei(1, 'ether') });
+        console.log('Cost of buy is ' + tx.receipt.gasUsed);
         const currentSellerBalance = await domainSale.balance(testdomainOwner);
         const currentReferrer1Balance = await domainSale.balance(referrer1);
         const currentReferrer2Balance = await domainSale.balance(referrer2);
@@ -161,7 +162,8 @@ contract('DomainSale', (accounts) => {
         assert.equal(await domainSale.auctionStarted('testdomain2'), false);
 
         // Cancel the sale
-        await domainSale.cancel('testdomain2', { from: testdomainOwner });
+        tx = await domainSale.cancel('testdomain2', { from: testdomainOwner });
+        console.log('Cost of cancel is ' + tx.receipt.gasUsed);
 
         // Ensure that the auction has not been triggered
         assert.equal(await domainSale.auctionStarted('testdomain2'), false);
@@ -253,6 +255,7 @@ contract('DomainSale', (accounts) => {
         const priorReferrer1Balance = await domainSale.balance(referrer1);
         const priorReferrer2Balance = await domainSale.balance(referrer2);
         await domainSale.finish('testdomain2', { from: bidder2 });
+        console.log('Cost of finish is ' + tx.receipt.gasUsed);
         const currentSellerBalance = await domainSale.balance(testdomainOwner);
         const currentReferrer1Balance = await domainSale.balance(referrer1);
         const currentReferrer2Balance = await domainSale.balance(referrer2);
